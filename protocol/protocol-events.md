@@ -1,0 +1,107 @@
+# Protocol Events
+
+**Status:** Implemented — with one labeled gap: most events are attributed by the node on an actor's behalf and are not yet individually signed by that actor.
+
+A protocol event is a durable fact Avalon considers part of its history. Not every integrator action is a protocol event, and ordinary gameplay never becomes one. Events are the canonical record and every table is a projection of them; history is append-only, so a correction is a new event and never an edit. This page describes the event envelope, the pipeline from event to settled history, and the versioning policy. The row-by-row list of kinds is the [event catalogue](./protocol-events-catalogue.md); a concrete ordered example is the [worked ledger example](./worked-ledger-example.md).
+
+## Hot gameplay versus durable events
+
+| Stays integrator-side (never an event) | May enter durable history |
+| --- | --- |
+| movement, combat, physics, AI | achievement issued or revoked |
+| HP, XP ticks, NPC state, player position | integrator event result |
+| matchmaking, ordinary chat | guild created, membership or role changed |
+| game-specific inventory and economy | integrator registered, binding established |
+| typing indicators, connection state, presence | issuer registered, key added or revoked |
+| | ownership transferred (later phase) |
+
+The test: would this fact matter outside the integrator that produced it, and does Avalon promise to preserve it? If either answer is no, it is not a protocol event. Presence is never one (see [presence](./presence.md)). The principle is recorded in [ADR 0075](../architecture/decisions/0075-durable-protocol-history-is-canonical-query-databases-are-projections.md).
+
+## The envelope
+
+Every event has the same shape:
+
+```text
+ProtocolEvent
+    id            Uuid
+    kind          string, namespaced, e.g. "achievement.issued"
+    issuer        GlobalId   who asserts this fact
+    subject       GlobalId   what or whom it is about
+    payload       JSON       one schema per kind and version
+    timestamp     RFC 3339
+    version       u32        payload schema version for this kind
+    identity_chain  optional per-identity chain position (layer-1 events only)
+```
+
+`kind` stays a plain string on the wire. In code, a `ProtocolEventKind` enum maps every known kind to a permanent wire string and has an `Other(String)` escape hatch, so a new kind never needs a protocol version bump while every known kind gets compile-time safety. Payloads are built from one typed struct per kind, never ad-hoc JSON. `EventBatch` is the settlement layer's unit of commitment over a group of events and is not itself an event, and `Commitment.proof` is opaque to the protocol crate (a ledger hash, a signed tree head, or a Merkle root).
+
+Layer-1 events (profile, friends, guild membership, keys, recovery) additionally carry a per-identity sequence number and previous-event hash, independent of the global ledger order, stored in the ledger entry payload under a reserved `_identity_chain` key so it is covered by the entry hash; see [per-identity event chains](./identity/event-chains.md). The chain hash is taken over the event's own payload without that key, in canonical JSON, with the timestamp at microsecond precision.
+
+## The pipeline
+
+```text
+Protocol Event
+      |
+      +----> Query Projection          (indexer; rebuildable)
+      |
+      +----> Outbox / event buffer
+                  |
+                  v
+              Batching                  (EventBatch)
+                  |
+                  v
+          Commitment / Merkle root      (RFC 6962 tree, Signed Tree Head)
+                  |
+                  v
+              Settlement                (transparency log on Postgres)
+```
+
+An event fans out to the read model and to the settlement path. The projection is the optimized copy and the settled history is the record. One event is never one settlement transaction. Events are enqueued in an outbox in the same transaction as the row change they accompany, and the settlement worker commits whatever batch its current drain tick assembles (a single-event batch is legal). The settlement model is described in [settlement](../architecture/settlement.md); Avalon's ledger is a signed, append-only transparency log and not a blockchain, per [ADR 0070](../architecture/decisions/0070-settlement-is-a-public-transparency-log.md) and [ADR 0186](../architecture/decisions/0186-no-blockchain-validator-consensus-transparency-log-only.md).
+
+## Design properties
+
+Every durable event can be signed, verified, indexed idempotently, replayed in order from genesis to rebuild any projection, committed behind a durable commitment, corrected only by a later event, versioned so it stays decodable for as long as the log exists, and audited (issuer, subject, timestamp, and log position are independently checkable). Events carry enough canonical information to reconstruct required state and no more; anything derivable from other events is computed by the indexer and not stored twice.
+
+## Signing posture
+
+Two postures recur. **Signature-verified** events are built only after a real signature by the actor with authority verifies: `identity.created` and `identity.signing_key_added` (by the identity's signing key, or the approving device's), and `achievement.issued`, `achievement.revoked`, and their milestone equivalents (a detached issuer signature in the request). Of these, only `achievement.issued` and `milestone.issued` embed the proof in the durable payload, so a third party can re-verify them from the ledger alone; for the others the signature is checked at write time and is not stored in the payload. **Node-attributed** events are recorded by the node on behalf of an authenticated actor, the current stand-in where no per-event signing ceremony exists yet. Almost every other emitter uses this posture: profile edits, friend actions, guild changes, bindings and grants, recovery steps, integrator registration, key-set changes, schema and data publication. The integrator is authenticated by challenge-response, but the event itself carries no embedded signature. Registration and recovery are necessarily node-attributed, since the requester holds no proven key yet. This is a known gap between the design property "every event can be signed" and the current emitters; the [event catalogue](./protocol-events-catalogue.md) records the actual posture per kind.
+
+## Versioning policy
+
+History may outlive every current maintainer, so:
+
+- Adding an optional field does not change `version`.
+- Removing, renaming, or changing the meaning of a field bumps `version`.
+- Every version ever emitted stays decodable forever. Decoders are added, never deleted.
+- An unknown kind is preserved and skipped by an indexer that does not understand it, and is never dropped from the log.
+- Attestations additionally carry an issuer-declared schema reference so a consumer can recognize "integrator event result, schema v1" independently of the issuer's naming.
+
+"We can change the schema later" is true of a projection table and false of the log.
+
+## History versus current state
+
+Both are kept, and kept distinct:
+
+```text
+Guild membership history (events)        Current projection (indexer)
+2027-01-01  X joins Guild A              User X
+2027-04-14  X becomes Officer                Guild: none
+2028-02-10  X leaves Guild A
+```
+
+History is reconstructable; current state is optimized for reads and can always be thrown away and rebuilt. A "current status" column on a projection row is a cache of the latest relevant event and never the record. See [revocation](./revocation.md) and [disaster recovery](../architecture/disaster-recovery.md).
+
+## Implementation
+
+Status: implemented. The kind catalogue, typed payloads, and versioning policy are real: every emitter in the server builds its kind and payload through the typed structs, and round-trip and fixture tests exist for every payload.
+
+- Envelope and kinds: [`events.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/events.rs). Payload structs: [`event_payloads.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/event_payloads.rs).
+- There is no single dispatcher. Each domain module enqueues its own kinds into `protocol_outbox` ([`outbox.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/outbox.rs)) in the same transaction as the row change.
+- Ledger storage and the content hash (over `event_id`, `kind`, `issuer`, `subject`, `payload`, `timestamp`, `version`): [`crates/chain/src/postgres.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/chain/src/postgres.rs), with the schema in the server's migrations.
+
+## Related
+
+- [Event catalogue](./protocol-events-catalogue.md), [worked ledger example](./worked-ledger-example.md)
+- [Per-identity event chains](./identity/event-chains.md), [revocation](./revocation.md), [provenance](./provenance.md)
+- [Settlement](../architecture/settlement.md), [query and indexing](../architecture/query-and-indexing.md), [disaster recovery](../architecture/disaster-recovery.md)
+- [ADR 0075](../architecture/decisions/0075-durable-protocol-history-is-canonical-query-databases-are-projections.md)
