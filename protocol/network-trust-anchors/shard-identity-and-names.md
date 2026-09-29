@@ -1,0 +1,50 @@
+# Shard Trust Anchors, Self-Certifying Ids, and Domain-Proven Names
+
+**Status:** Implemented — shard key authorization, self-certifying shard ids, and well-known-file name proofs are built; the DNS TXT proof form is defined but not wired to a real resolver.
+
+A bare shard id proves as little as a bare network id does, so a client needs a way to verify that a shard's tree head is signed by its claimed operator, without a second static trust-anchor list. This page describes three layered mechanisms: per-shard trust anchors reusing issuer-key registration, permanent self-certifying ids that need no registry, and human-readable names proven against a domain. It builds on [network trust anchors](../network-trust-anchors.md), and sharding itself is described in [sharding](../../architecture/settlement/sharding.md).
+
+## Per-shard trust anchors
+
+**Reuse issuer-key registration.** "This key legitimately speaks for Integrator X" is what [issuer-key registration](../issuers.md) already establishes. A shard's settlement-signing key is authorized the same way: the integrator's root key authors an `issuer.key_added` event with `purpose: "shard_settlement"` (alongside the implicit `"attestation"` purpose), through the same root-authorizes-operational-key flow. Rotation and compromise reuse `issuer.key_revoked` unchanged.
+
+**No second static trust-anchor file.** The published list pins one key per `network_id`: the **core shard's** verify key (the reserved shard for identity, social, and guild history). A per-integrator shard's anchor is never a committed file entry, because shards are created at integrator-registration velocity and not pull-request velocity. It is the `issuer.key_added(purpose: shard_settlement)` event itself, already durable, signed, append-only history. Trusting a shard's key reduces to fetching an inclusion proof for that event against the core shard's pinned STH and verifying it like any inclusion proof. There is one pinned key at the root, and every shard's authorization is transitively provable from it.
+
+**Composes with the cross-shard root.** A witness computing the cross-shard root already fetches every contributing shard's STH. The added check resolves that shard's currently authorized `shard_settlement` keys through the core-shard proof and confirms the shard's STH signature verifies against one of them. That catches an internally consistent but unauthorized shard (correct Merkle math, wrong or revoked signer), not just aggregation errors.
+
+`KeyPurpose` (`Attestation` or `ShardSettlement`) is a real field on issuer keys. A `shard_settlement` key can authenticate ordinary challenge-response calls but can never be resolved as an attestation-signing key, and vice versa.
+
+**Two sources, unioned.** A node resolves a shard's verify keys as the union of its local issuer-keys table (the fast path on the registrar node) and keys derived from its **mirrored core ledger**. The mirror-watcher stores a core entry only after verifying its inclusion proof against a signature-checked STH from the pinned network key, so mirror-derived keys are rooted at the pinned core key. The derivation reads the integrator's `game.registered` event and its `issuer.key_added` and `issuer.key_revoked` events in order; a key is valid if added with the `shard_settlement` purpose and not named by a later revocation. A node that is not the registrar, or whose core authority is unreachable, still verifies sibling shards as long as it holds the relevant core history. Limits: the node must mirror the core shard, entries whose payload was pruned cannot contribute, and a pruned `game.registered` yields no keys because the integrator's id and category are unknown. Cross-node login's "verified requester" check uses the same two sources (see [cross-node login](../../architecture/nodes/cross-node-login.md)).
+
+## Self-certifying shard ids
+
+The above resolves a shard key by tracing it through the core ledger to a registered integrator, which works only once that integrator has registered and only while the core authority or a mirror is reachable. A permanent second form exists for when neither holds: `node:<key-hash>`, where the hash is the lowercase hex SHA-256 of the shard's own tree-head Ed25519 public key. A verifier handed the id, a candidate key, and a signed tree head checks three things locally: re-derive the id from the key and compare, then verify the head's signature against that key. No core-ledger proof, no `issuer.key_added` event, and no database is consulted. The id is exactly as much trust anchor as the key needs.
+
+Named (`game:<slug>`) and self-certifying ids are both first-class and permanent, told apart by parsing alone. Neither is deprecated in favor of the other, and a network runs shards of both kinds side by side. A key for a self-certifying shard must hash to its id, and a different key from the one pinned on first sight is rejected. Design decision: [issue 929](https://github.com/avalon-initiative/avalon-protocol/issues/929).
+
+**A name is a claim on top, never a gate underneath.** A self-certifying shard has no human-readable name unless its own key signs one. A `NameBindingClaim` binds a name to a self-certifying id and carries the raw public key alongside the id, so it verifies in isolation. A shard with no name authors and is verified exactly like one with a claimed name.
+
+**In the server.** Tree-head responses for a `node:` shard carry an optional `signing_public_key` outside the signed bytes. A node that mirrors discovered shards checks the key is canonical and not of small order, hashes to the id, and signed the head (and that the head is for its own network), pins the key once the head is accepted, mirrors the log, and cosigns it like any other shard. A discovered `node:` head is refused before anything is stored unless its network id is this node's own and its peer version is supported. Mirrored entries of a self-certifying shard are stored in mirror tables only and are not applied to the indexer, so such a shard creates no identities or projected state. Bounds on how much a node mirrors (never on validity) cap the number of pinned shards overall and per source, the number examined per tick, entries per shard, and idle time before eviction; the least recently seen idle pin is evicted and never an active one. These bounds, and not the gossip layer, limit a flood of minted shard ids, because shard announcements are unauthenticated.
+
+## Domain-proven names
+
+Naming needs no registry and no Avalon authority online. A name is proven against a domain, and conflicting claims resolve deterministically.
+
+**Proof format.** The published proof value is the claim's own signature, prefixed: `avalon-name-proof-v1:<claim.signature>`. The signature already commits to `(self_certifying_id, public_key, name, created_at)`, so publishing it ties the domain to that exact claim; a different key, name, or `created_at` requires a different proof value, so there is nothing to replay. The domain publishes it at either `https://<name>/.well-known/avalon-name-proof` or a DNS TXT record at `_avalon-challenge.<name>`. The check is pure: the claim must verify on its own and the fetched value must equal the expected proof. Fetching is I/O and lives in the server.
+
+**Contested names.** If two different keys each present a validly domain-proven claim for the same name, the earliest signed `created_at` wins, with ties broken by the lexicographically smaller public key. "Most recently fetched proof wins" was rejected on purpose: a domain's live DNS or HTTP state can flap or be cached differently per verifier, and two honest verifiers would then disagree depending on network timing. `created_at` is a fixed, signed field, so every verifier holding both claims computes the same answer.
+
+**Server wiring.** `POST /shards/{self_certifying_id}/name-claims` accepts a signed claim, verifies it, fetches and checks the domain proof, resolves any contest against what is stored, and records the result in a one-row-per-name table that is a cache of a proven fact and not the source of trust. `GET /shards/name/{name}` and `GET /shards/{self_certifying_id}/name-claims` resolve either direction. Claims are rate-limited per source by default, and integrator registration and key-add gained a separate, more generous per-source default, without any change to how `game:<slug>` names resolve. This naming layer is parallel and additive.
+
+## Implementation
+
+Status: implemented, with the DNS TXT proof form defined but only the well-known-file form fetched today.
+
+- Pure logic: [`shard_identity.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/shard_identity.rs) (`derive_self_certifying_id`, `verify_self_certifying_tree_head`, `NameBindingClaim`), [`domain_proof.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/domain_proof.rs), and `KeyPurpose` in [`integrators.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/integrators.rs).
+- Server: [`name_claims.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/name_claims.rs), [`self_certifying_keys.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/self_certifying_keys.rs), [`mirrored_shard_keys.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/mirrored_shard_keys.rs), and `cross_shard.rs` for key resolution.
+- Vector for the self-certifying head check, shared by all three SDKs: [`self-certifying-tree-head.json`](https://github.com/avalon-initiative/avalon-protocol/blob/main/conformance/vectors/self-certifying-tree-head.json).
+
+## Related
+
+- [Network trust anchors](../network-trust-anchors.md), [issuers](../issuers.md), [witness cosigning](../witness-cosigning.md)
+- [Sharding](../../architecture/settlement/sharding.md), [mirroring](../../architecture/settlement/mirroring.md), [distributed topology](../../architecture/distributed-topology.md)
