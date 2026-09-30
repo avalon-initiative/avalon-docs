@@ -1,6 +1,6 @@
 # Connectivity
 
-**Status:** Partially implemented — direct, relayed, and outbound-only nodes are live; NAT hole punching and announced/topology connectivity fields are Planned
+**Status:** Partially implemented — direct, relayed, and outbound-only nodes are live and hole punching is enabled; announced/topology connectivity fields are Planned
 
 Connectivity is how other nodes and clients can reach a node. It is a property of the network path, not of the node's standing: a node in any connectivity state is a full node. This page defines the states, how a node detects which one it is in, and how relays let a node that cannot accept inbound connections still be reached.
 
@@ -11,7 +11,7 @@ The decision behind this is [ADR 0903](../decisions/0903-node-participation-must
 | State | Meaning | Wire name | Status |
 | --- | --- | --- | --- |
 | Direct | Peers open connections straight to a routable address of this node. | `direct` | Implemented |
-| NAT-traversed | Peers reach this node over a direct connection established by hole punching, with no routable address of its own. | `nat_traversed` | Planned (#906) |
+| NAT-traversed | Peers reach this node over a direct connection established by hole punching, with no routable address of its own. | `nat_traversed` | Implemented; attempts start once a relayed connection exists |
 | Relayed | Peers reach this node through a relay node that only carries bytes. | `relayed` | Implemented |
 | Outbound-only | This node only dials out. Peers never open a connection to it; it pulls and pushes over connections it initiated. | `outbound_only` | Implemented |
 
@@ -25,7 +25,7 @@ Connectivity is independent of authority, roles, capabilities, services, and tru
 
 All additions are additive; no existing field changes meaning or is removed.
 
-- `GET /nodes/status` carries a `connectivity` field with one wire name above (Implemented), plus `reachability`, `confirmed_external_addrs`, `relay_reservations`, and `relayed_listen_addrs` described below.
+- `GET /nodes/status` carries a `connectivity` field with one wire name above (Implemented), plus `reachability`, `confirmed_external_addrs`, `relay_reservations`, `relayed_listen_addrs`, `hole_punches`, and `punched_peers` described below.
 - Planned (#918): an optional `connectivity` field on the announce entry and the peer table, and a per-node `connectivity` field and per-edge path type in the topology read model. Older peers omit the field and readers treat a missing value as unknown, never as `direct`.
 
 Connectivity is self-reported until an observer can confirm it, so consumers treat it as a hint for path selection and display, never as an input to any trust or authorization decision.
@@ -37,6 +37,7 @@ Every node runs libp2p AutoNAT as both client and server on its DHT swarm. As a 
 | `reachability` | `connectivity` |
 | --- | --- |
 | `public` | `direct` |
+| `private`, a hole-punched direct connection is open | `nat_traversed` |
 | `private`, at least one accepted relay reservation | `relayed` |
 | `private`, no reservation | `outbound_only` |
 | `unknown` | omitted; never reported as `direct` |
@@ -69,9 +70,16 @@ Relay candidates are, in order: relays the operator listed, then connected peers
 
 libp2p's per-peer and per-IP request limiters also apply. A relay dials nothing itself: circuits run over connections the two peers opened to it. With the defaults at most 16 circuits are open, each cut after 2 minutes or 512 KiB, bounding relayed traffic to about 8 MiB per circuit window. Relayed circuits are limited by design, so they suit control traffic and small exchanges.
 
+## Hole punching
+
+Nodes run libp2p DCUtR on the same swarm (`AVALON_DCUTR_ENABLED`, default on). When two nodes are connected through a relay, the node that was dialed offers its observed addresses, the two exchange them over the relayed connection, and both dial each other at the same moment so that each NAT sees an outbound packet first. If a direct connection results, it replaces the relayed one for that peer; libp2p retries a few times before giving up.
+
+A failed attempt never drops the relayed connection: the peer stays reachable through the relay and the node keeps reporting `relayed`. `GET /nodes/status` lists the most recent attempts, oldest first and bounded (`hole_punches`: peer id, `succeeded`, and an `error` on failure), and `punched_peers`, the peers a hole-punched connection is open to right now. A private node reports `nat_traversed` while `punched_peers` is not empty and falls back to `relayed` or `outbound_only` when the last punched connection closes.
+
+Whether a punch can succeed depends on the NATs. Endpoint-independent mapping (the cone types) usually works; a symmetric NAT that picks a new external port per destination usually does not, and the connection stays relayed. A successful punch shows the other node this node's public address, which the relay already knew.
+
 ## Planned and unbuilt
 
-- Hole punching, so a direct path replaces a relay (`nat_traversed`, #906).
 - Advertising connectivity in announce and topology (#918).
 - Reachability verification of a new announcing peer today is a direct inbound fetch, so an announcing node must currently be `direct`; other states need their own path (#918).
 - Relay selection by latency or capacity (#914).
