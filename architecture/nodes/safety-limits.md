@@ -31,6 +31,23 @@ Admission is capped and validated, with explicit rejection codes: an invalid, to
 - Over-limit responses are always `429` with `Retry-After`, from either layer.
 - Limits are per process by default. An operator can opt into a shared limiter across that one operator's own processes, scoped strictly to one hoster and failing open if the shared store is unreachable. A network-wide shared limiter is deliberately not offered, since it would recreate the single point of control that sharded settlement removes.
 
+## Relays and hole punching
+
+Relays and hole punching let a node with no open port take part, and they add an abuse surface. This is the threat model and what each control does. The mechanics are on the [connectivity](connectivity.md) page.
+
+| Threat | Control |
+| --- | --- |
+| A relay is used for free bandwidth | Every relay resource has a finite, configurable bound with a safe default: reservations and circuits in total and per peer, reservation and circuit lifetimes, and bytes per circuit. A circuit is cut at its lifetime or byte cap. Relaying is off unless the operator turns it on. |
+| Reservations or circuits are exhausted to lock others out | The per-peer and total limits above, plus libp2p's per-peer and per-IP request limiters. A refused request costs the relay one reply. A relay reports limits and usage in `GET /nodes/status` (`relay_server`), so an operator can see pressure and the denial counts. |
+| Dial-back or hole punching is used to make a node attack a third party | A node dials back only the IP it observed on the requesting connection, refuses private and loopback addresses unless allowed for development, and answers a bounded number of dial-backs per minute. Every libp2p address that enters the peer table is validated under the outbound address policy before it is stored or dialed. |
+| A relay reads or alters traffic, or pretends to be a peer | Both ends run their own noise handshake over the circuit, so the relay carries bytes it cannot read, and a peer id is authenticated end to end: a relay that terminates the circuit itself cannot complete the handshake as the peer. A forged address that names another peer id is dropped at admission. |
+| A peer table fills with unverifiable relayed entries | A gossiped peer with no reachable URL waits in the small unverified pool. It is promoted only when an outbound libp2p connection authenticates its peer id. Pool size, dials per scan, and table size are all bounded. |
+| A relay operator learns who talks to whom | It does, and this is stated rather than hidden. |
+
+What a relay operator can observe: the address and peer id of each node that reserves a slot or opens a circuit, the peer id at the other end, when circuits start and stop, and how much moves through them. It cannot read or change the content, and it holds no state or authority: a relay is transport, never a source of truth. Relay use is logged with reasons for denials.
+
+What hole punching exposes: the two nodes learn each other's public IP address to open the direct connection. The relay already knew both. A node that does not want its address shown to a peer can turn hole punching off (`AVALON_DCUTR_ENABLED=false`) and stay on the relay.
+
 ## Host resource metrics
 
 `GET /nodes/status` includes a resources block with the node's own CPU, memory, swap, disk, uptime, file-descriptor count, and database pool state. Every field is optional and best-effort; a metric the platform cannot read is absent, not an error. Nothing in it gates protocol behavior or signals a privileged node, and no cross-node aggregation happens in the protocol.
