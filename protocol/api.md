@@ -6,11 +6,11 @@ The Avalon wire API is specified in two different ways depending on who calls it
 
 ## The SDK-facing API: OpenAPI
 
-The source of truth is [`docs/generated/openapi.json`](https://github.com/avalon-initiative/avalon-protocol/blob/main/docs/generated/openapi.json) in `avalon-protocol`, titled "Avalon Protocol API" and versioned with semver (0.7.0 at the time of writing). Its scope, in its own words, is identity and auth, profile and presence, social graph, chat, devices, passkeys and recovery, guilds, and the integrator, achievements, and registry surface, about 133 paths.
+The source of truth is [`docs/generated/openapi.json`](https://github.com/avalon-initiative/avalon-protocol/blob/main/docs/generated/openapi.json) in `avalon-protocol`, titled "Avalon Protocol API" and versioned with semver (0.7.2 at the time of writing). Its scope, in its own words, is identity and auth, profile and presence, social graph, chat, devices, passkeys and recovery, guilds, and the integrator, achievements, and registry surface, about 133 paths.
 
 - **Generated, not hand-written.** The document is produced from annotations on the real handler signatures and types by `make openapi`. `make openapi-check` fails CI if the file is stale relative to the annotations, and `make openapi-version-check` fails CI if the schema's shape changed relative to `main` without a version bump. Each SDK embeds the schema version it targets.
 - **Contract flow.** A change to this API updates the protocol repository first, then the SDK conformance vectors, then consumers. SDKs are generated from the same document and share one version; see [SDK design](../sdk/design.md) and [ecosystem: SDKs](../ecosystem/sdks.md).
-- **Known gaps.** The document deliberately omits routes no SDK wraps, and it does not yet cover every public route: for example `GET /registry/{slug}` is served by nodes (with the registry data also available at `GET /integrations/{slug}/registry`, which is documented). An automated route-table-versus-schema coverage check is tracked separately in the protocol repository.
+- **Known gaps.** The document deliberately omits node-to-node, ledger, and internal routes. Some of those, such as tree-head reads and node discovery, are called by the SDKs with hand-written code pinned by conformance vectors, so they have no generated types and no route-coverage check. It also does not yet cover every public route: for example `GET /registry/{slug}` is served by nodes (with the registry data also available at `GET /integrations/{slug}/registry`, which is documented). An automated route-table-versus-schema coverage check is tracked separately in the protocol repository.
 
 ## Node, ledger, and mirror routes
 
