@@ -26,7 +26,8 @@ Connectivity is independent of authority, roles, capabilities, services, and tru
 All additions are additive; no existing field changes meaning or is removed.
 
 - `GET /nodes/status` carries a `connectivity` field with one wire name above (Implemented), plus `reachability`, `confirmed_external_addrs`, `relay_reservations`, `relayed_listen_addrs`, `hole_punches`, and `punched_peers` described below.
-- Planned (#918): an optional `connectivity` field on the announce entry and the peer table, and a per-node `connectivity` field and per-edge path type in the topology read model. Older peers omit the field and readers treat a missing value as unknown, never as `direct`.
+- Announce requests, the responder's own entry in announce responses, and peer table entries carry an optional `connectivity` field (Implemented). Older peers omit it and readers treat a missing value as unknown, never as `direct`.
+- Planned (#918): a per-node `connectivity` field and per-edge path type in the topology read model.
 
 Connectivity is self-reported until an observer can confirm it, so consumers treat it as a hint for path selection and display, never as an input to any trust or authorization decision.
 
@@ -80,7 +81,7 @@ Whether a punch can succeed depends on the NATs. Endpoint-independent mapping (t
 
 ## Planned and unbuilt
 
-- Advertising connectivity in announce and topology (#918).
+- Advertising connectivity in the topology read model (#911).
 - Reachability verification of a new announcing peer today is a direct inbound fetch, so an announcing node must currently be `direct`; other states need their own path (#918).
 - Relay selection by latency or capacity (#914).
 
