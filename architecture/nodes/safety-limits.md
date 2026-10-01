@@ -38,7 +38,7 @@ Relays and hole punching let a node with no open port take part, and they add an
 | Threat | Control |
 | --- | --- |
 | A relay is used for free bandwidth | Every relay resource has a finite, configurable bound with a safe default: reservations and circuits in total and per peer, reservation and circuit lifetimes, and bytes per circuit. A circuit is cut at its lifetime or byte cap. Relaying is off unless the operator turns it on. |
-| Reservations or circuits are exhausted to lock others out | The per-peer and total limits above, plus libp2p's per-peer and per-IP request limiters. A refused request costs the relay one reply. A relay reports limits and usage in `GET /nodes/status` (`relay_server`), so an operator can see pressure and the denial counts. |
+| Reservations or circuits are exhausted to lock others out | The per-peer and total limits above, plus libp2p's per-peer and per-IP request limiters. A refused request costs the relay one reply. A relay reports limits and usage in `GET /nodes/status` (`relay_server`), so an operator can see pressure and the denial counts; bytes carried are bounded per circuit but not measured. |
 | Dial-back or hole punching is used to make a node attack a third party | A node dials back only the IP it observed on the requesting connection, refuses private and loopback addresses unless allowed for development, and answers a bounded number of dial-backs per minute. Every libp2p address that enters the peer table is validated under the outbound address policy before it is stored or dialed. |
 | A relay reads or alters traffic, or pretends to be a peer | Both ends run their own noise handshake over the circuit, so the relay carries bytes it cannot read, and a peer id is authenticated end to end: a relay that terminates the circuit itself cannot complete the handshake as the peer. A forged address that names another peer id is dropped at admission. |
 | A peer table fills with unverifiable relayed entries | A gossiped peer with no reachable URL waits in the small unverified pool. It is promoted only when an outbound libp2p connection authenticates its peer id. Pool size, dials per scan, and table size are all bounded. |
@@ -47,6 +47,12 @@ Relays and hole punching let a node with no open port take part, and they add an
 What a relay operator can observe: the address and peer id of each node that reserves a slot or opens a circuit, the peer id at the other end, when circuits start and stop, and how much moves through them. It cannot read or change the content, and it holds no state or authority: a relay is transport, never a source of truth. Relay use is logged with reasons for denials.
 
 What hole punching exposes: the two nodes learn each other's public IP address to open the direct connection. The relay already knew both. A node that does not want its address shown to a peer can turn hole punching off (`AVALON_DCUTR_ENABLED=false`) and stay on the relay.
+
+One detection limit is stated here because it affects what a node believes about itself: AutoNAT v1 reports a node behind a restricted-cone NAT as `public` ([connectivity](connectivity.md#detection)). Such a node advertises addresses a stranger cannot reach, so it is less reachable than it reports.
+
+## Node-to-node streams
+
+Node-to-node requests carried over libp2p streams ([connectivity](connectivity.md#node-to-node-requests-over-libp2p-streams)) are bounded like any other unauthenticated input. Request and response bodies, request time, requests in flight in total and per peer, buffered request bytes, header count and size, path length, and the swarm's connection counts all have finite defaults and ceilings; an over-limit request is answered 429 before its body is read. Only a fixed allowlist of node-to-node routes is served, and admin, internal, and user-facing routes are refused. Peers whose libp2p id is not bound to a peer table entry share one synthetic client address, so inventing peer ids does not multiply per-IP budgets. The three routes that write data without their own credential are limited to bound peers, which narrows who can reach them and is not an authorization check ([identity binding](discovery-and-peering.md#identity-binding-is-not-a-security-boundary)).
 
 ## Host resource metrics
 
