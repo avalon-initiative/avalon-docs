@@ -1,6 +1,6 @@
 # Nodes
 
-**Status:** Implemented — relay selection, a fronting gateway, and transport selection are Planned (see connectivity)
+**Status:** Implemented — relay re-selection, a fronting gateway, and credentials for the write routes of a node with no public URL are Planned (see connectivity)
 
 An Avalon node is infrastructure that transports, indexes, settles, and serves protocol data. Nodes are infrastructure providers, not authorities: a node cannot fabricate an issuer's claim or replace an actor's signature, and node capabilities are roles an operator chooses to run, not mandatory separate binaries.
 
@@ -70,9 +70,9 @@ A pure mirror that has not yet backfilled a shard answers a "nothing here yet" 4
 | --- | --- |
 | [Roles and extraction](roles-and-extraction.md) | The role gate, backing-service discovery, extracting indexer, realtime, and settlement, replica-only mode, first-boot keys |
 | [Discovery and peering](discovery-and-peering.md) | How SDKs and nodes find nodes, the peer table and its bounds, latency and coordinates, DHT use, push sync |
-| [Connectivity](connectivity.md) | Direct, NAT-traversed, relayed, and outbound-only nodes; detection; relays; hole punching; node-to-node requests over libp2p streams |
+| [Connectivity](connectivity.md) | Direct, NAT-traversed, relayed, and outbound-only nodes; detection; relays and how a relay is selected; hole punching; node-to-node requests over libp2p streams and failover between HTTP and streams |
 | [Topology and tracing](topology-and-tracing.md) | The per-node topology view with connectivity and latency path, probe, trace, operation tracing, overlay routing |
-| [Safety limits](safety-limits.md) | Outbound address policy, rate and concurrency limits, request bounds, relay and stream limits, public read CORS |
+| [Safety limits](safety-limits.md) | Outbound address policy, rate and concurrency limits, request bounds, relay, stream, and failover limits, public read CORS |
 | [Version rollout](version-rollout.md) | Permanent version skew, the three version axes, minimum-version floor |
 | [Cross-node login](cross-node-login.md) | Logging an identity into a node it never registered on |
 

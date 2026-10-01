@@ -2,7 +2,7 @@
 
 **Status:** Accepted — decided 2026-09-25
 
-Implementation: AutoNAT detection, circuit relay (client and server), hole punching, relay fallback, per-node and per-neighbor connectivity in the topology read model, relay server limits and usage in node status, node-to-node requests over libp2p streams, path labels on probe, trace, and topology latency, and admitting a node with no public URL as `p2p://<peer id>` are built. Relay selection, a fronting gateway, and transport selection are not, and a `p2p://` node cannot yet call the credential-less write routes (#1077). See [connectivity](../nodes/connectivity.md).
+Implementation: AutoNAT detection, circuit relay (client and server), hole punching, relay fallback, per-node and per-neighbor connectivity in the topology read model, relay server limits and usage in node status, node-to-node requests over libp2p streams, path labels on probe, trace, and topology latency, and admitting a node with no public URL as `p2p://<peer id>` are built. Relay selection (by network spread, round trip, and outcome history) and failover between HTTP and streams are built. Re-selecting relays, probing, a fronting gateway, and key-proof binding of peer ids are not, and a `p2p://` node cannot yet call the credential-less write routes (#1077). See [connectivity](../nodes/connectivity.md).
 
 Original record: [avalon-protocol#903](https://github.com/avalon-initiative/avalon-protocol/issues/903). The text below is preserved as recorded; `#N` references are avalon-protocol issue numbers and file paths are as they were when the decision was made.
 
