@@ -1,6 +1,6 @@
 # Nodes
 
-**Status:** Implemented — admitting nodes with no reachable URL, relay selection, and transport selection are Planned (see connectivity)
+**Status:** Implemented — relay selection, a fronting gateway, and transport selection are Planned (see connectivity)
 
 An Avalon node is infrastructure that transports, indexes, settles, and serves protocol data. Nodes are infrastructure providers, not authorities: a node cannot fabricate an issuer's claim or replace an actor's signature, and node capabilities are roles an operator chooses to run, not mandatory separate binaries.
 
