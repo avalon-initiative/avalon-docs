@@ -69,5 +69,7 @@ Status: implemented.
 
 ## Related
 
+- [Network environments](../architecture/network-environments.md)
+- [Running your own network](../developers/running-your-own-network.md)
 - [Shard identity and names](./network-trust-anchors/shard-identity-and-names.md), [witness cosigning](./witness-cosigning.md), [trust model](./trust-model.md), [security model](./security-model.md)
 - [Settlement](../architecture/settlement.md), [sharding](../architecture/settlement/sharding.md), [ADR 0070](../architecture/decisions/0070-settlement-is-a-public-transparency-log.md)

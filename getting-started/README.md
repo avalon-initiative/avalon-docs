@@ -4,6 +4,8 @@
 
 Start here if you are new to Avalon. These pages explain what Avalon is, why it exists, and the handful of concepts every other page builds on. They assume no prior knowledge of the project.
 
+If you already know what you want to do, go straight to [start here](start-here.md), a role-by-role map to the setup guides.
+
 ## Reading order
 
 1. [What is Avalon?](what-is-avalon.md) — a one-page description of the system and what it is not.

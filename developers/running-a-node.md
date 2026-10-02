@@ -32,6 +32,10 @@ Release binaries have provenance you can verify before running them.
 
 The hosting guides (standalone binary, Docker quickstart, deployment behind TLS, upgrading and rollback, choosing a shard, seed nodes, and release verification) live in the [avalon-protocol repository](https://github.com/avalon-initiative/avalon-protocol#readme). The same guides are embedded in the `avalon` binary: run `avalon guide` to list topics, and `avalon setup` for the guided first run.
 
+## Running a network of your own
+
+A node joins an existing network or starts a new one. Starting a new one, with its own key and trust list, is covered step by step in [running your own network](running-your-own-network.md).
+
 ## Related
 
 - [Self-hosting](../architecture/self-hosting.md)
