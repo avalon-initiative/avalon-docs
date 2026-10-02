@@ -1,6 +1,6 @@
 # Connectivity
 
-**Status:** Partially implemented — detection, relays, relay selection, hole punching, connectivity reporting, stream transport with failover between HTTP and streams, path labels, and admitting a node with no public URL are live; relay re-selection, probing, a relay flag in announce, a fronting gateway, and credentials for the write routes are Planned
+**Status:** Partially implemented — detection, relays, relay selection and re-selection, hole punching, connectivity reporting, stream transport with failover between HTTP and streams, path labels, admitting a node with no public URL, and credentials for the node-to-node write routes are live; probing relays, a relay flag in announce, and a fronting gateway are Planned
 
 Connectivity is how other nodes and clients can reach a node. It is a property of the network path, not of the node's standing: a node in any connectivity state is a full node. This page defines the states, how a node detects which one it is in, and how relays let a node that cannot accept inbound connections still be reached.
 
@@ -59,7 +59,7 @@ Nodes speak libp2p circuit relay v2 on the same DHT swarm. A relay carries bytes
 
 Relay candidates are the relays the operator listed (`AVALON_RELAY_ADDRS`) and connected peers that advertise the relay hop protocol; at most 64 are remembered. Which of them to reserve with is decided by [relay selection](#relay-selection). Candidate addresses obey the [outbound address policy](safety-limits.md#outbound-address-policy). Reservations are managed without a restart: the client renews each before expiry; when a relay refuses, times out, drops the connection, or stops, the reservation is dropped, that relay is backed off, and the next candidate is tried at the next 5-second reconcile. A reservation the relay leaves unanswered for 30 seconds is abandoned the same way.
 
-**Server role** (off by default). A relay is only useful when peers can dial it, so it advertises the hop protocol only while its reachability is `public`, or `unknown` with an operator-stated external address; a `private` node never relays. Every limit is finite, at least 1, and has a ceiling.
+**Server role** (off by default). A relay is only useful when peers can dial it, so it advertises the hop protocol only while its reachability is `public`, or `unknown` with an operator-stated external address. A relay that is already serving keeps serving through a `private` verdict for a grace period ([below](#keeping-a-relay-serving)); a node that stays `private` past it, or that never served, does not relay. Every limit is finite, at least 1, and has a ceiling.
 
 | Limit | Default | Ceiling |
 | --- | --- | --- |
@@ -71,9 +71,19 @@ Relay candidates are the relays the operator listed (`AVALON_RELAY_ADDRS`) and c
 | Circuit lifetime | 120 s | 3600 s |
 | Bytes per circuit | 524288 | 67108864 |
 
+The per-peer limits are exact: one peer holds at most that many reservations, and at most that many circuits, at once, and the next request is refused. libp2p's relay denies a peer only when its count is strictly above its limit, so the server maps each configured per-peer value to one less in the library configuration.
+
 A node with the relay server role reports its limits and live usage in `GET /nodes/status` under `relay_server` (omitted when the node does not relay). `limits` repeats the table above for this node. `usage` has the reservations and circuits open right now plus totals since start: reservations and circuits accepted, denied, and closed, reservations timed out, and circuits closed with an error. Bytes carried are bounded per circuit but not measured.
 
 libp2p's per-peer and per-IP request limiters also apply. A relay dials nothing itself: circuits run over connections the two peers opened to it. With the defaults at most 16 circuits are open, each cut after 2 minutes or 512 KiB, bounding relayed traffic to about 8 MiB per circuit window. Relayed circuits are limited by design, so they suit control traffic and small exchanges.
+
+### Keeping a relay serving
+
+AutoNAT is a self-measurement, and a relay that is reachable can still get a single `private` verdict. Three behaviors keep relaying steady across short outages.
+
+- **Grace before stopping.** A relay that is serving keeps serving for a bounded time after AutoNAT first reports it `private`, and a `public` verdict resumes serving at once and restarts the grace. `AVALON_RELAY_SERVER_PRIVATE_GRACE_SECS` sets it (default 90, at most 600; 0 stops serving at the first `private` verdict). A node that never served is not switched on by the grace, and one that stays `private` past it stops serving until a `public` verdict.
+- **Dial-backs release their connection.** Answering an AutoNAT dial-back opens an extra connection to the probed node, which would otherwise stay until the idle timeout. Repeated probes between two nodes reached the per-peer connection limit, the next dial-back was denied and reported as a dial error, and the prober flipped to `private`. The connection a pending dial-back opened is now closed once the probe is answered; only the first outbound connection at a requested address, with the dialer role, is taken for it.
+- **Retries for relayed dials.** A dial to a peer reachable only through a relay that fails on its circuit address is retried by the bootstrap scan with exponential backoff per peer: `AVALON_RELAY_DIAL_RETRIES` attempts (default 5, at most 20; 0 disables), the first after `AVALON_RELAY_DIAL_RETRY_BASE_SECS` (default 5, 1 to 60), doubling up to 120 seconds. A connection to the peer clears its count. The retry state is bounded by the known-peer limit and only a spent entry is evicted.
 
 ## Relay selection
 
@@ -81,7 +91,7 @@ A `private` node with fewer reservations than it wants picks the next relay at e
 
 1. **Hard skips.** A relay that already holds a reservation for this node, or is in backoff, is not considered.
 2. **Operator-listed before discovered.** Listed relays are considered first, in list order; discovered relays only when no listed one is eligible.
-3. **Spread across networks.** Within that group, a relay outside every network already held is preferred: the IPv4 /24, the IPv6 /48, or the DNS host name of a held relay counts as held, and a relay with no IP address or host name counts as outside. A relay's network is taken from its open direct connection when there is one, else from the address it reported or that would be dialed. When every relay in the group shares a network with a held one, the best relay in the group is taken, so a deployment on a single network still reaches its full reservation count. A slot filled this way is not rebalanced when a more diverse relay becomes available.
+3. **Spread across networks.** Within that group, a relay outside every network already held is preferred: the IPv4 /24, the IPv6 /48, or the DNS host name of a held relay counts as held, and a relay with no IP address or host name counts as outside. A relay's network is taken from its open direct connection when there is one, else from the address it reported or that would be dialed. When every relay in the group shares a network with a held one, the best relay in the group is taken, so a deployment on a single network still reaches its full reservation count. A slot filled this way is moved to a diverse relay later by [re-selection](#relay-re-selection).
 4. **Order among discovered relays.** Round trip, compared on a fixed 10 ms grid (a relay with no measurement ranks after every measured one), then outcome history, then the relay's self-reported free capacity as a tie-break, then peer id. Operator-listed relays are ordered by list position alone.
 
 Outcome history scores accepted reservations (counted up to 4) and renewals (up to 16) for a relay and subtracts a penalty for each accepted reservation that was later lost (counted up to 4, weighted double, and halved at each renewal so an old loss fades). The caps keep a relay that accepts and drops repeatedly from outscoring one that stays up.
@@ -92,7 +102,25 @@ Capacity is only a tie-break, and it is not fed in production today: nothing rec
 
 **Where latency comes from.** The round trip for a relay is this node's smoothed announce round trip to the peer-table entry that claims the relay's libp2p id. It is used only when exactly one bound entry holds that id and a libp2p connection to the peer is open, and entries known only from gossip are ignored. It measures the round trip to the entry's URL, not to the relay connection. Because binding carries no proof of key possession ([discovery and peering](discovery-and-peering.md#identity-binding-is-not-a-security-boundary)), a node that falsely claims a relay's id can skew or hide that relay's latency; this changes which relay is tried first and never who may relay or what a relay may do.
 
-Not built: probing relays before choosing, replacing a held reservation when a better relay appears, and a flag in announce that says a node serves as a relay. Choices are made when a slot is empty and never revisited.
+Not built: probing relays before choosing, and a flag in announce that says a node serves as a relay.
+
+## Relay re-selection
+
+A choice made when a slot was empty is revisited, with hysteresis so reservations do not move back and forth. A held reservation is replaced only when all of these hold.
+
+- The node is `private`, every reservation is accepted (none is still being requested), and no replacement started in the last interval, so at most one replacement runs at a time and at most one starts per interval.
+- The reservation has been held for the hold time, counted from its first acceptance; renewals do not restart it.
+- Some relay that is not held and not in backoff clearly beats it. Among the held reservations past the hold time, the worst-ranked one that some relay improves on is the one replaced. A relay clearly beats a held one when it is an operator-listed relay replacing a discovered one, when it is listed earlier in the list, when it is in a network the other held reservations are not and the held one shares one, or, among discovered relays, when its round trip is lower by at least the margin and at least a quarter of the held relay's round trip and its outcome history is not worse. The rules mirror initial selection, so a swap is not undone by the next choice.
+
+The new relay is reserved while the old reservation stays, and the old one is released only once the new one is accepted. If the new one is refused or times out, the old reservation is untouched. Round trips are refreshed for a review at most once per interval.
+
+| Variable | Default | Ceiling | Meaning |
+| --- | --- | --- | --- |
+| `AVALON_RELAY_RESELECT_HOLD_SECS` | 600 | 86400 | How long a reservation is held, from its first acceptance, before a better relay may replace it. |
+| `AVALON_RELAY_RESELECT_INTERVAL_SECS` | 120 | 86400 | Least time between two replacements. |
+| `AVALON_RELAY_RESELECT_MARGIN_MS` | 30 | 10000 | Round trip a discovered relay must save over the held one. |
+
+Each value must be at least 1. When the set of relayed addresses a node advertises changes (a reservation is added, replaced, or lost; a renewal changes nothing peers can dial), the next announce round is brought forward instead of waiting out the interval, at most one round per 30 seconds, and changes that land while it waits are covered by that round.
 
 ## Hole punching
 
@@ -110,7 +138,7 @@ Node-to-node HTTP can ride a libp2p stream instead of a TCP connection to a URL,
 
 **When a stream is used.** A peer is addressed by stream when it has a verified libp2p id and either its connectivity is `relayed` or `outbound_only` or its base URL is not a usable http(s) URL. Otherwise its base URL is used. The stream is also used when the entry's base URL is itself `p2p://<id>` (below). Requests can also move between the two transports after a failure; see [transport failover](#transport-failover). The announce loop, relayed trace forwarding, realtime relay, chat replication, and cosign gathering pick the address this way; mirror polling and settlement submission start from the configured http(s) URL and fail over like any other request. Probe and trace choose the address by the same rule, so a peer with no usable URL, or one that is relayed, hole-punched, or outbound-only, is probed and traced over its stream.
 
-**Authenticated peer id.** The sender of a stream request is the peer id authenticated by the noise handshake, which a relay cannot forge. A peer id counts as bound to a peer table entry only when the entry's own URL reported that same id (in its status answer or its own announce response entry), never through gossip or a third party. Streams are routed only by bound ids. Three routes that inject data without a credential of their own (`/nodes/relay`, `/nodes/replicate-chat`, `/mirror/notify`) are refused over a stream unless the sender is bound. Binding says which node sent a request; it is not a statement that the node is trusted ([discovery and peering](discovery-and-peering.md#identity-binding-is-not-a-security-boundary)).
+**Authenticated peer id.** The sender of a stream request is the peer id authenticated by the noise handshake, which a relay cannot forge. A peer id counts as bound to a peer table entry only when the entry's own URL reported that same id (in its status answer or its own announce response entry), never through gossip or a third party. Streams are routed only by bound ids. The three node-to-node write routes (`/nodes/relay`, `/nodes/replicate-chat`, `/mirror/notify`) take this authenticated peer id as the caller's credential and are refused over a stream unless the sender has standing, which needs a bound entry ([write route credentials](write-route-credentials.md)). Binding says which node sent a request; it is not a statement that the node is trusted ([discovery and peering](discovery-and-peering.md#identity-binding-is-not-a-security-boundary)).
 
 **What is reachable.** Only an explicit set of node-to-node routes is served over a stream: announce, peers, discover, status, relay, probe, trace, topology, chat replication, mirror notify, and the read and write ledger routes nodes call on each other (tree heads, proofs, entries, submit, batch prepare and finalize, cross-shard root, remote submit status, mirror progress). Admin, internal-role, and every user-facing route are refused with 403, as are paths with encoding, dot segments, or backslashes. Only GET and POST are carried, and connection-framing and proxy headers (`Host`, `X-Forwarded-For`, and similar) are dropped so a stream cannot spoof a client address.
 
@@ -136,7 +164,7 @@ Streams in flight in either direction are capped at 16, headers at 32 lines and 
 
 A request to a peer that can be reached both ways may move to the other transport. Failover only reorders transports the peer's hint already allows; it never adds a path, relaxes verification, or vouches for anything.
 
-**Outcome record.** For each peer and each transport this node keeps the last success and failure, the number of consecutive failures, and a moving average of the round trip (weight 1/8 on a new sample). The table holds 4096 peers; the least recently touched is dropped past that. A failure to connect demotes the transport for 10 seconds, doubling with each consecutive failure up to 300 seconds; a success clears it. Only failing to connect records a failure: a timeout, a closed stream, an error status, and a local limit do not. Any answer from the peer, whatever its status, counts as the transport working. The record is demote-only: while a transport is demoted and the other is usable and not demoted, the other is tried first; when both are demoted the peer's hint stands. A demotion never moves a request to a stream for `/nodes/relay`, `/nodes/replicate-chat`, or `/mirror/notify`.
+**Outcome record.** For each peer and each transport this node keeps the last success and failure, the number of consecutive failures, and a moving average of the round trip (weight 1/8 on a new sample). The table holds 4096 peers; the least recently touched is dropped past that. A failure to connect demotes the transport for 10 seconds, doubling with each consecutive failure up to 300 seconds; a success clears it. Only failing to connect records a failure: a timeout, a closed stream, an error status, and a local limit do not. Any answer from the peer, whatever its status, counts as the transport working. The record is demote-only: while a transport is demoted and the other is usable and not demoted, the other is tried first; when both are demoted the peer's hint stands. A demotion never moves a request to a stream for `/nodes/relay`, `/nodes/replicate-chat`, or `/mirror/notify`, and a request moved to a stream is never signed: the handshake is the credential there.
 
 **When a request fails over.** Only after a failure to connect, and for reads (GET) also after a timeout. It never fails over on an application answer (a 4xx or 5xx, including 403, is returned as is), on a stream that closed after the request was sent, or, for a write, after a timeout, since the peer may have applied it. A request this node could not queue, such as one with too many requests already waiting on the same peer or no address to dial, is a separate local error: it fails over like a connect failure but never demotes a transport.
 
@@ -146,7 +174,7 @@ A request to a peer that can be reached both ways may move to the other transpor
 
 **Waiting for a dial.** A stream request to a peer with no open connection waits behind a dial, at most 32 requests per peer. If no connection is open after `AVALON_NODE_HTTP_CONNECT_TIMEOUT_SECS` (default 15, at most 60) the request counts as never sent and a read can fall back to the peer's URL. A request whose caller already gave up is not delivered when the connection arrives.
 
-Not built: re-selecting a transport by measured quality, a relay flag in announce, bounded probing of alternatives, a fronting gateway, a proof of key possession for binding, and credentials for the write routes.
+Not built: re-selecting a transport by measured quality, a relay flag in announce, bounded probing of alternatives, a fronting gateway, and a proof of key possession for binding.
 
 ## Nodes with no public URL
 
@@ -155,16 +183,16 @@ A node with no `AVALON_NODE_URL` (and a libp2p identity) announces itself as `p2
 - **Admitted by the stream.** A `p2p://<id>` announce is admitted when it arrives on a libp2p stream whose noise-authenticated peer id equals the id in the URL and in `libp2p_peer_id`. The handshake stands in for the address and reachability checks, since there is no address to fetch. A new entry still counts against the per-source budget and the table cap.
 - **Plain HTTP stores nothing.** A `p2p://` announce over HTTP, or over another peer's stream, is answered but nothing in it is stored or gossiped, and a mismatched id is rejected. An announce that went over HTTP therefore also does not feed the coordinate or promote a pooled entry.
 - **Gossip.** A self-consistent `p2p://` entry (URL id equal to `libp2p_peer_id`) may enter the unverified pool through gossip. Gossip never overwrites an existing `p2p://` entry; only that peer's own announce changes it. A libp2p contact that authenticates the id promotes and binds a pooled entry, keeping only the id: roles, version, addresses, and connectivity are reset until the peer announces.
-- **Not trusted for credential-less routes.** A `p2p://` entry proves only a key pair, so it never counts as bound for `/nodes/relay`, `/nodes/replicate-chat`, and `/mirror/notify` ([above](#node-to-node-requests-over-libp2p-streams)), is never a chat replication or realtime fan-out target whatever roles it reports, and gets no per-peer client address (it shares the common one). Consequence: such a node cannot call those three routes or receive chat and mirror pushes until they carry a credential (#1077).
+- **Standing for the write routes, not a target.** A `p2p://` entry bound by its authenticated stream has standing, so the node can call `/nodes/relay`, `/nodes/replicate-chat`, and `/mirror/notify` with its stream identity as the credential ([write route credentials](write-route-credentials.md)). The entry proves only a key pair, so it is never a chat replication or realtime fan-out target whatever roles it reports, is never another node's mirror source, and gets no per-peer client address (it shares the common one). Consequence: such a node sends but receives no chat or mirror pushes, and polls instead.
 - **Bounded and evicted first.** The main table holds at most 64 `p2p://` entries, the unverified pool 32, and the shard registry 32 `p2p://` shard URLs (8 unseen per gossip exchange). At a cap a `p2p://` entry is evicted before any HTTP entry, and a `p2p://` newcomer never displaces an HTTP peer.
 - **Own URL scope.** A node's own `p2p://` URL is used for announce, topology, and trace only; it is never handed to browsers, signed grants, or interest claims and registration. Features that need the node's own http(s) URL, such as cross-node login, are unavailable to it.
 - **Bootstrap.** A node reachable only by `p2p://` still needs one HTTP-reachable seed: it announces to a peer by stream once it knows that peer's libp2p id, and until then (or when the stream fails) over the peer's URL, where the announce is answered but admits nothing, which is how it learns the peer's id and addresses.
 
 ## Planned and unbuilt
 
-- Credentials for the three write routes (`/nodes/relay`, `/nodes/replicate-chat`, `/mirror/notify`), so a node announced only as `p2p://<peer id>` can call them and receive chat and mirror pushes (#1077).
+- Chat and mirror pushes to a node announced only as `p2p://<peer id>`, which can send on the write routes but is not a push target.
 - A fronting gateway for nodes that cannot be reached.
-- Replacing held relay reservations when a better relay appears, probing relays before choosing, and a flag in announce that marks a node as a relay.
+- Probing relays before choosing, and a flag in announce that marks a node as a relay.
 - Re-selecting a transport by measured quality, bounded probing of the alternative, and a proof of key possession for peer-id binding.
 
 ## Implementation

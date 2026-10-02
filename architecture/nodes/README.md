@@ -1,6 +1,6 @@
 # Nodes
 
-**Status:** Implemented — relay re-selection, a fronting gateway, and credentials for the write routes of a node with no public URL are Planned (see connectivity)
+**Status:** Implemented — a fronting gateway, relay probing, and a relay flag in announce are Planned (see connectivity)
 
 An Avalon node is infrastructure that transports, indexes, settles, and serves protocol data. Nodes are infrastructure providers, not authorities: a node cannot fabricate an issuer's claim or replace an actor's signature, and node capabilities are roles an operator chooses to run, not mandatory separate binaries.
 
@@ -46,6 +46,7 @@ A hosted node is not protocol authority. The concrete guarantees:
 - A node cannot fabricate "integrator A issued this achievement". Attestations are signed by A's registered issuer key ([issuers](../../protocol/issuers.md)); a node that stores an unsigned or wrongly signed claim has stored something every verifier rejects.
 - A node cannot replace a signature, alter a settled entry, or drop one without detection. The log is hash-chained, signed, and mirrorable.
 - A node cannot act as an identity. Identity mutations are authorized by the identity's own key ([identity](../../protocol/identity.md)).
+- A node cannot push data into another node anonymously. The routes nodes use to push live events, chat copies, and mirror notifications require the sender's node identity key and a known peer table entry, and each route limits what that sender may do ([node-to-node write routes](write-route-credentials.md)).
 - Operator actions that do exist, such as suspending an issuer at the network level, are explicit, audited protocol events with their own trail, never silent edits. The [security model](../../protocol/security-model.md) has the full authority map.
 
 What a node can do is the ordinary work of infrastructure: accept, validate, order, store, index, serve, and mirror.
@@ -70,8 +71,9 @@ A pure mirror that has not yet backfilled a shard answers a "nothing here yet" 4
 | --- | --- |
 | [Roles and extraction](roles-and-extraction.md) | The role gate, backing-service discovery, extracting indexer, realtime, and settlement, replica-only mode, first-boot keys |
 | [Discovery and peering](discovery-and-peering.md) | How SDKs and nodes find nodes, the peer table and its bounds, latency and coordinates, DHT use, push sync |
-| [Connectivity](connectivity.md) | Direct, NAT-traversed, relayed, and outbound-only nodes; detection; relays and how a relay is selected; hole punching; node-to-node requests over libp2p streams and failover between HTTP and streams |
+| [Connectivity](connectivity.md) | Direct, NAT-traversed, relayed, and outbound-only nodes; detection; relays, how a relay is selected and re-selected, and how a serving relay is kept up; hole punching; node-to-node requests over libp2p streams and failover between HTTP and streams |
 | [Topology and tracing](topology-and-tracing.md) | The per-node topology view with connectivity and latency path, probe, trace, operation tracing, overlay routing |
+| [Node-to-node write routes](write-route-credentials.md) | The credential on relay, chat replication, and mirror notify, standing, replay protection, refusal codes, the per-route scope checks, and known residuals |
 | [Safety limits](safety-limits.md) | Outbound address policy, rate and concurrency limits, request bounds, relay, stream, and failover limits, public read CORS |
 | [Version rollout](version-rollout.md) | Permanent version skew, the three version axes, minimum-version floor |
 | [Cross-node login](cross-node-login.md) | Logging an identity into a node it never registered on |
