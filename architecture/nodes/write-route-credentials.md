@@ -37,7 +37,23 @@ The receiver keeps a 128-bit truncated hash of the signer id and nonce for each 
 
 A caller has standing when its libp2p peer id belongs to a bound entry in the main peer table. Binding is defined in [discovery and peering](discovery-and-peering.md#identity-binding-is-not-a-security-boundary): the entry's own URL reported that id. A node known only through gossip, or held only in the unverified pool, has none. A node that announces itself as `p2p://<peer id>` over a stream the handshake authenticated as that id has standing through that entry, so a node with no public URL can call these routes. Standing is cheap to get, because admission to the network is open. It identifies the sender and does not trust it: a credential grants no authority beyond what each route checks below.
 
-Standing is for sending only. A `p2p://` entry is still never a chat replication or realtime fan-out target, still receives no chat or mirror pushes, and is never one of another node's mirror sources, so `POST /mirror/notify` from it is always refused with 403.
+Standing is for sending only. A `p2p://` entry is never a chat replication or realtime fan-out target, so the node receives no chat, and it registers its mirror interest under its `p2p://` address. Its `/nodes/relay` and `/nodes/replicate-chat` calls are delivered under its node credential, and the neighbor that stores a replica tags the row with the sender's peer id (`replicated_by`).
+
+Current limitation: such a node cannot be a mirror source. Sources are configured and matched by HTTP URL, so its `POST /mirror/notify` is refused with 403 (scope) even though its credential is valid, and its neighbors learn of new entries by polling. Letting a node with no public URL be a mirror source is planned under protocol issue #1141.
+
+### Gaining standing
+
+A key gains standing by announcing as `p2p://<its id>` over its own libp2p stream. Before it has announced, every call is refused with 403 `node_auth_no_standing` over a stream or signed HTTP, and an HTTP request with no header gets 401 `node_auth_missing`. After the announce, the same key is accepted on `/nodes/replicate-chat` over both transports. Standing is cheap by design: the defence is the bound-peer table cap and the per-signer limits, not the cost of obtaining a key.
+
+### Reading the refusals
+
+A stream request carries no `x-avalon-node-auth` header, since the handshake is the credential. These routes are outside the OpenAPI document, so a client generated from it shows no authentication on them. The node credential applies regardless, and a caller that cannot supply it is refused as below.
+
+| Route | Credential refusals | Scope refusals |
+| --- | --- | --- |
+| `/nodes/relay` | 401 `node_auth_missing` and the other 401 codes, 403 `node_auth_no_standing` | 403 no local subscriber for the scope, 422 oversize message |
+| `/nodes/replicate-chat` | same | 403 not an indexer or combined node, 422 invalid event, 429 replica rate, 404 delete of a row the signer did not insert |
+| `/mirror/notify` | same | 403 signer is not a configured mirror source, 400 wrong network or non-positive tree size |
 
 ## Refusals
 
