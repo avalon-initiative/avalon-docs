@@ -9,7 +9,7 @@ An identity's friends are a network-level relationship that persists across inte
 | Thing | Persists across integrators? | Where it lives |
 | --- | --- | --- |
 | Friendship (identity A and identity B) | Yes | a durable network relationship, owned by the network and not by either identity's current integrator |
-| Friend requests (pending state) | Until resolved | server state, not durable history |
+| Friend requests (pending state) | Until resolved | server state for the pending record; sending a request also commits a `friend.requested` event to the public ledger |
 | Presence of a friend | Ephemeral | see [presence](./presence.md) |
 | Blocks and mutes | Yes | server state, never durable history (below) |
 | An integrator's in-world social features (party, LFG) | No | integrator-side |
