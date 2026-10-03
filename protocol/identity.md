@@ -1,6 +1,6 @@
 # Identity
 
-**Status:** Partially implemented — self-certifying ids and signed key changes are built in the server; verification of those signatures on mirroring nodes, SDK registration, and recovery of a signing key are not.
+**Status:** Partially implemented — self-certifying ids and signed key changes are built in the server; verification of those signatures on mirroring nodes and recovery of a signing key are not. The SDKs (0.1.6) implement the client side.
 
 An Avalon identity is a self-custodied keypair plus a small amount of self-described profile data. It belongs to the person who holds the keys, not to any integrator, node, or database, and it is the one thing that survives any single integrator or server disappearing. Integrators establish their own scoped participation under it (see [bindings](./bindings.md)); the identity itself stays the same across all of them.
 
@@ -40,12 +40,16 @@ An identity id is the lowercase hex SHA-256 of the domain tag `avalon-identity-i
 - **Display names** stay best-effort unique per node and are never the key anything hangs off. Registration refuses a name that, after dropping invisible characters, trimming, and lowercasing, is shaped like an identity id, and names with control, zero-width, or bidirectional-override characters, or longer than 128 characters.
 - **WebAuthn.** The WebAuthn user handle is the first 16 bytes of the id, because the WebAuthn library takes a UUID.
 
-The conformance vectors `identity-id.json`, `identity-created-signing.json`, `device-grant-approval.json`, and `signing-key-revoked.json` pin the derivation and the signing bytes. They are exercised only by the protocol repository's runner so far; the SDK runners skip them.
+The conformance vectors `identity-id.json`, `identity-created-signing.json`, `device-grant-approval.json`, and `signing-key-revoked.json` pin the derivation and the signing bytes. They are vendored into `avalon-sdks` and run in the Rust, TypeScript, and C# SDKs as well as the protocol runner.
+
+### SDK support (0.1.6)
+
+- **Registration.** The Rust and TypeScript SDKs generate the inception key first, derive the hex id, send `event_signing_public_key` in `register/start`, and sign the v2 `identity.created` bytes using the `network_id`, `shard_id`, and ticket exactly as the server supplied them. They also reject an unacceptable generated key. The C# SDK has the `IdentityId` type, derivation, and all the signing functions, but no registration flow.
+- **Other signing.** All three SDKs build the v2 device-grant-approval and signing-key-revoked bytes, verify identity signatures strictly, and parse ids strictly. `revoke_device` signs with the session's own local signing key and fails without one. `approve_device_grant` also requires a local signing key and checks the requested key is acceptable before signing.
 
 ### What is not built yet
 
 - **Verification on mirroring nodes.** A node that mirrors a shard and projects its identity events checks only shape and derivation, not signatures. For `identity.created` it creates the identity row only when the id derives from an acceptable key and matches the id in the entry's issuer and subject; for an inception `identity.signing_key_added` it accepts the key only when it derives the id. It does not yet verify the `identity.created` signature, the device-grant `approval_signature`, or the `identity.signing_key_revoked` signature when projecting, and the profile projection still applies a repeated `identity.created` for an existing id as an upsert instead of reporting a conflict. Passkey events and the recovery events carry no proof. Cross-node login does verify the creation signature, against the network and shard it fetched from, before it provisions a local stub. This verification is tracked in [avalon-protocol#1130](https://github.com/avalon-initiative/avalon-protocol/issues/1130).
-- **SDK support.** The Rust and TypeScript registration helpers still generate a random UUID as the identity id, and send no `event_signing_public_key` in the start request, so they do not register against a server with the current contract. All three SDKs type identity ids as UUIDs or GUIDs, and the C# SDK has no registration helper. SDK support for the derivation, the v2 signing bytes, and strict verification is follow-up work.
 - **Recovering a signing key.** See [recovery](./identity/recovery.md#recovery-restores-a-passkey-not-a-signing-key).
 
 ## Self-described metadata is self-expression, not fact

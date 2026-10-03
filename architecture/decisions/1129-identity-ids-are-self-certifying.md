@@ -42,7 +42,7 @@ Identity ids become self-certifying.
 
 ## Implementation state
 
-This section is not part of the recorded decision. The derivation, signing bytes, vectors, server, schema, and API (#1133, #1134) are in the protocol repository's main branch; see [identity](../../protocol/identity.md#the-identity-id). Projection-time verification (#1130) and the SDK changes are not built; see [what is not built yet](../../protocol/identity.md#what-is-not-built-yet).
+This section is not part of the recorded decision. The derivation, signing bytes, vectors, server, schema, and API (#1133, #1134) are in the protocol repository's main branch; see [identity](../../protocol/identity.md#the-identity-id). The SDKs (0.1.6) implement the client side. Projection-time verification (#1130) is not built; see [what is not built yet](../../protocol/identity.md#what-is-not-built-yet).
 
 ## Related
 
