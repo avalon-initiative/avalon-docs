@@ -39,4 +39,4 @@ This section is not part of the recorded decision. The work is tracked in the ep
 
 ## Related
 
-#1129, #1130, #1125, #1137, #1178, #1183, [ADR 0786](0786-on-demand-cross-node-identity-data-resolution.md).
+#1130, #1125, #1137, #1178, #1183, [ADR 1129](1129-identity-ids-are-self-certifying.md), [ADR 0786](0786-on-demand-cross-node-identity-data-resolution.md).
