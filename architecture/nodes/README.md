@@ -55,13 +55,27 @@ What a node can do is the ordinary work of infrastructure: accept, validate, ord
 
 Multiple operators is a goal, achieved by mirroring one public, verifiable log rather than by federation. See [mirroring](../settlement/mirroring.md). Sharded settlement authority is the complementary answer to one operator holding sole write authority; see [sharding](../settlement/sharding.md).
 
-## Identity and social actions are not shard-locked
+## Identity and social actions and shards
 
-An identity has no home node in any ongoing operational sense. Which shard a new event commits into is a property of whichever node handles the request, never of the identity acting through it; no path requires an identity's actions to route back through the shard where its `identity.created` event landed. "Home" is a historical fact (where that first event was committed, and then replicated), not a place an identity depends on reaching.
+**Status:** Partially implemented. An identity is not tied to one node's operations, but whether an account is usable from another node depends on which shard its identity events were written to and whether the other node projects that shard.
 
-A person can authenticate through any live node ([cross-node login](cross-node-login.md)), and their friend, guild, and profile actions commit into that node's shard. If the node they were using disappears mid-session, reconnecting through another live node and continuing is the same reconnect-elsewhere pattern used for realtime chat.
+**Where events land.** The outbox labels identity, social, and guild events `core`. A node with a remote `core` authority configured submits them there; every other node commits them to its own ledger, so they land in the shard that node authors. A node that generates its own settlement key at first boot, with no shard id and no remote authority configured, authors a self-certifying `node:<hash>` shard, so on a default fresh node the identity events of a new account (`identity.created`, the passkey event, and the inception `identity.signing_key_added`) go to that node's own `node:` shard and not to `core`. Only the core authority itself, or a node with a remote `core` authority, writes identity events into `core`. A named shard (`game:<slug>`) likewise holds the identity events of the accounts registered through the node that authors it.
 
-The real, narrower failure that remains is a specific integrator's own settlement shard going down. That pauses that integrator's new issuances, a contained per-integrator blast radius, and it never stops an identity from acting elsewhere. Separately, none of this helps if a shard's data was never copied anywhere; the minimum-replication gate for new registrations addresses that ([retention and growth](../settlement/retention-and-growth.md)), and extending the guarantee further remains an open question.
+**Which other nodes can see the account.** A node that authors no `core` mirrors the `core` shard of the network's seed nodes by default and projects what it mirrors. It mirrors other shards only when named in `AVALON_MIRROR_PEERS` or, with `AVALON_MIRROR_ALL_DISCOVERED_SHARDS` (off by default), discovered through gossip. Entries of a `node:` shard are never projected into a node's identity tables, however they were mirrored, so the account of a default fresh node does not exist on other nodes (see [sharding](../settlement/sharding.md#automatic-shard-discovery)). A named shard that the destination mirrors is projected.
+
+| Where the account's identity events are | Visible on another node, and cross-node login with the device-held signing key |
+| --- | --- |
+| `core` | Yes, on every node that mirrors and projects `core` (the default for a node that authors none). |
+| A named shard the other node mirrors | Yes, on a node that mirrors and projects that shard. |
+| A `node:` shard (the default fresh node) | No. Not projected on other nodes, so the account is not visible there and the login grant cannot verify. |
+
+**Cross-node login** finds the identity's signing key in the destination's own projected tables, and otherwise fetches it from the `core` shard only ([cross-node login](cross-node-login.md)), and **passkey login** reads credentials from the node's own table, so a passkey works only on the node that holds the credential. The signed, human-approved login grant uses the device-held signing key, not the passkey. An account whose events are only in a `node:` shard therefore has no key the destination can find, cannot log in on another node, and does not survive its registering node being decommissioned.
+
+**After the registering node disappears.** Another node that had mirrored the shard keeps the raw mirrored entries, but nothing projects them, so the account is not recoverable from them. A session already held on a node that disappears can be continued elsewhere only on a node that has projected the identity's signing key, which has the same dependency.
+
+Planned: any node accepts and projects verified identity events from any shard it mirrors, with per-source caps, and cross-node login resolves the identity's entries from the shard they live in, as decided in [ADR 1177](../decisions/1177-an-account-stays-usable-anywhere-when-its-registering-node-goes-away.md). The work is tracked in [avalon-protocol#1178](https://github.com/avalon-initiative/avalon-protocol/issues/1178), and none of it is built.
+
+The real, narrower failure that remains for integrators is a specific integrator's own settlement shard going down. That pauses that integrator's new issuances, a contained per-integrator blast radius, and it never stops an identity from acting elsewhere. Separately, none of this helps if a shard's data was never copied anywhere; the minimum-replication gate for new registrations addresses that ([retention and growth](../settlement/retention-and-growth.md)), and extending the guarantee further remains an open question.
 
 A pure mirror that has not yet backfilled a shard answers a "nothing here yet" 404 that says so: the body marks the node as a mirror and names the peer to ask, so it is distinguishable from a genuinely empty authority.
 

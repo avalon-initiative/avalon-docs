@@ -1,8 +1,8 @@
 # Cross-Node Login
 
-**Status:** Implemented
+**Status:** Partially implemented — login works for identities whose signing keys are in the destination's projected tables or in the `core` shard; an account whose events live in another shard (the default for a fresh node) cannot log in on another node.
 
-A person can log in through a node they never registered a passkey on, with no shared login domain, using a signed, human-approved, destination-bound assertion. It extends the [cross-device pairing](../../protocol/identity.md) pattern to a different node rather than a different device.
+A person can log in through a node they never registered a passkey on, with no shared login domain, using a signed, human-approved, destination-bound assertion made with the identity's device-held signing key. The passkey itself does not move: it is stored in the registering node's own table under that node's WebAuthn relying-party id (`AVALON_WEBAUTHN_RP_ID`), and passkey login on another node is not implemented. It extends the [cross-device pairing](../../protocol/identity.md) pattern to a different node rather than a different device.
 
 ## The grant
 
@@ -10,9 +10,10 @@ A cross-node login grant is a self-signed assertion that a human, shown real inf
 
 ## Finding the identity's keys
 
+- **Local first.** The destination first looks for the grant's signing key in its own projected signing-key table, which holds the keys of every identity whose events it has projected: the ones it authored and those from the shards it mirrors and projects (`core` by default). A shard of the `node:` form is never projected, so it contributes nothing here.
 - **Identity locator.** A DHT registration and lookup, the same shape interest scopes use, resolves which nodes currently hold an identity's signing keys. `GET /identities/{id}/locations` is deliberately unauthenticated because it must work before login completes, and it returns the full known set, never a single winner.
-- **Verified cross-shard fetch.** Given a shard and a node URL, the verifier fetches every ledger entry for a subject and checks each end to end: a signature-checked tree head, an RFC 6962 inclusion proof against that head, and the entry hash recomputed from the fetched content and compared with both the claimed hash and the proof's leaf. Without the last check a remote node could return a genuine proof for some real entry alongside a forged payload. If the grant's key is not in the destination's local tables, verification chains the locator with this fetch against each candidate node, matching the key history by key id and checking revocation the same way local lookup does.
-- A verified signing key alone does not mint a session. The destination also best-effort provisions a minimal local identity and profile stub by fetching the identity's own creation entry, silently skipped (never a login failure) on a display-name collision, since a node's uniqueness index cannot be enforced globally.
+- **Verified cross-shard fetch.** Given a shard and a node URL, the verifier fetches every ledger entry for a subject and checks each end to end: a signature-checked tree head, an RFC 6962 inclusion proof against that head, and the entry hash recomputed from the fetched content and compared with both the claimed hash and the proof's leaf. Without the last check a remote node could return a genuine proof for some real entry alongside a forged payload. If the grant's key is not in the destination's local tables, verification chains the locator with this fetch against each candidate node, matching the key history by key id and checking revocation the same way local lookup does. The login path always asks for the `core` shard, verified against the network's pinned core key, whatever shard the identity's events actually live in. An identity whose events are in a named shard or a `node:` shard that the destination has not projected is therefore not found, and the login fails. Planned: resolving the identity's entries from the shard they live in, verified against that shard's own key and the identity's signature chain ([ADR 1177](../decisions/1177-an-account-stays-usable-anywhere-when-its-registering-node-goes-away.md)); not built.
+- A verified signing key alone does not mint a session. The destination also best-effort provisions a minimal local identity and profile stub by fetching the identity's own creation entry (again from `core`, and only after checking its signature against the inception key the id derives from), silently skipped (never a login failure) on a display-name collision, since a node's uniqueness index cannot be enforced globally.
 
 ## Approval
 
@@ -28,7 +29,7 @@ The outbox writes each event durably in the same transaction as the request, but
 
 ## Implementation
 
-Status: Implemented. The grant type is in the [protocol crate](https://github.com/avalon-initiative/avalon-protocol/tree/main/crates/protocol) and the lifecycle, locator, and verified fetch are in the [server crate](https://github.com/avalon-initiative/avalon-protocol/tree/main/crates/server) of avalon-protocol. Approval screens are in the [Hub repository](https://github.com/avalon-initiative/avalon-hub).
+Status: Partially implemented, as above. The grant type is in the [protocol crate](https://github.com/avalon-initiative/avalon-protocol/tree/main/crates/protocol) and the lifecycle, locator, and verified fetch are in the [server crate](https://github.com/avalon-initiative/avalon-protocol/tree/main/crates/server) of avalon-protocol. Approval screens are in the [Hub repository](https://github.com/avalon-initiative/avalon-hub).
 
 ## Related
 
