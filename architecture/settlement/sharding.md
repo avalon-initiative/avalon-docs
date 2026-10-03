@@ -43,6 +43,18 @@ The cross-shard root must be independently computable by any node from public in
 
 No consensus or cross-shard ordering is involved. A network with exactly one shard degenerates to a one-leaf root; the single-operator case is the one-shard special case, not a separate code path.
 
+## The shard family head
+
+An owner that runs several sibling shards (`game:<slug>` and `game:<slug>/<instance>`) can be verified as one family. Membership comes only from the shard id: instances of one owner form a family, and `core` and `node:<hash>` shards belong to none. The owner part alone decides which registered keys verify a head, so each member head is still verified exactly as in the cross-shard root.
+
+- **A separate structure.** The family head is not the cross-shard root scoped to one owner. Its leaves use their own domain tag and bind the owner, so a family root never equals a network root over the same heads. Each leaf is `SHA-256(family tag || owner || shard_id || tree_size || root_hash || signing_key_id || signature)` with length-prefixed fields; an empty family has a fixed root derived from the owner.
+- **Ordering and hashing** are the cross-shard root's: byte-wise ascending by `shard_id`, RFC 6962 tree hash, the same inclusion proof code.
+- **Unsigned and recomputable.** A node publishes the root with the member heads it used, and anyone can recompute it from public heads.
+- **Completeness is advisory.** Nothing declares which siblings exist, so the head covers the siblings a node knows about and has verified. A known sibling without a verified head makes the result `partial: true` and is listed in `missing_shard_ids`; a sibling the node has never heard of is invisible. A declared membership, such as an owner-signed record of its instances, would make completeness verifiable and is a separate decision.
+- **Endpoint.** `GET /ledger/shard-family?owner=<namespace>:<slug>` is public and unauthenticated, like the cross-shard root, and returns the root, the member heads in canonical order and the partial information. `?member=<shard_id>` adds that member's inclusion proof. A malformed owner (including one with an instance, `core`, or a `node:` id) is a 400, a member without a verified head is a 404, and a family of more than 256 members is refused rather than truncated, because a truncated root could not be recomputed by others.
+
+Atomic writes across siblings are out of scope; each sibling stays a single-signer log.
+
 ## Automatic shard discovery
 
 At scale, hand-listing shards is itself a gap. Discovery uses two layers of gossip over a node's existing bounded peer connections, deliberately not a registry or directory node type.
