@@ -11,7 +11,7 @@ This page describes shard identity, write routing, the cross-shard root, and how
 A shard is a `PostgresSettlementProvider`-style log: its own hash chain, Merkle tree, and signed tree heads, signed by that shard's own settlement key. Sharding adds a layer on top and does not change how any shard works internally, so existing single-shard proofs work unchanged.
 
 - **Shard ids** look like `{namespace}:{owner}[/{instance}]`: `game:wow`, `app:...`, `service:...`, or a sibling like `game:wow/2`. Key and authority resolution use the owner only, so siblings are authorized by the same integrator's `shard_settlement` keys while remaining separate ledgers with separate heads. Nothing merges sibling ledgers.
-- **`core` is the reserved shard** of the network's pinned core authority, the one node whose settlement key is pinned for the network. Identity, social, and guild events have no single owning integrator, so they route to `core`. The core authority is also the trust root registrar: an integrator and its shard key become known to the network through events recorded in its ledger.
+- **`core` is the reserved shard** of the network's pinned core authority, the one node whose settlement key is pinned for the network. Identity, social, and guild events have no single owning integrator, so the outbox labels them `core`. That label selects a remote authority only when the node has a `core` target configured; otherwise the node commits them to its own ledger, whichever shard that is (see below). The core authority is also the trust root registrar: an integrator and its shard key become known to the network through events recorded in its ledger.
 - **Self-certifying shards.** A shard id of the form `node:<hash of public key>` proves itself: other nodes verify it with only the public key its tree-head response carries, so joining needs no registration ([witness cosigning](../../protocol/witness-cosigning.md)).
 - **A node's ledger is its shard.** Whatever a node commits locally is the history of the shard it authors. A node that claims `core` while holding a different key would be indistinguishable from an impostor to a client pinned to the network key, so the server refuses to start in that situation (with a tolerance only for a lone local development node).
 
@@ -24,11 +24,11 @@ An event's issuer id carries a namespace, and the namespace decides the shard.
 | Namespace | Shard |
 | --- | --- |
 | `game`, `app`, `service` (an integrator acting as itself: attestations, revocations, integrator-owned schema events) | that integrator's own shard, `{namespace}:{owner}` |
-| `identity` (identity, social, guild events) | the reserved `core` shard |
+| `identity` (identity, social, guild events) | labeled `core`: submitted to the `core` authority when this node has a remote `core` target configured, and otherwise committed to this node's own ledger, so the shard it authors (`core` on the core authority, a named shard, or a `node:` shard) |
 
 The outbox worker groups pending rows by shard and commits one batch per shard per tick, never mixing two shards in one batch. A shard is committed locally if this node holds that shard's signing key, and otherwise submitted to the shard's configured remote authority. A deployment with no remote authority configured has exactly one shard and behaves as a single-operator log. Routing picks which shard's authority to use; it never introduces a second writer for the same shard, so there is still nothing to referee.
 
-Identity and social actions are not shard-locked: which shard an event commits into depends on the node handling the request, never on where the identity was created ([nodes](../nodes/README.md#identity-and-social-actions-are-not-shard-locked)).
+Which shard an identity or social event commits into depends on the node handling the request, never on where the identity was created. A default fresh node authors a self-certifying `node:` shard, so the identity events of accounts registered through it are in that shard, which other nodes never project; see [identity and social actions and shards](../nodes/README.md#identity-and-social-actions-and-shards).
 
 ## The cross-shard root
 
