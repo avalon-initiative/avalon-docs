@@ -81,7 +81,7 @@ guild.member_removed    Identity Y (left)
 Current projection:  Dragon Hunters, Members: Identity X (Leader)
 ```
 
-The history is reconstructable from [protocol events](./protocol-events.md); the roster is rebuilt from it by the [indexer](../architecture/query-and-indexing.md). Nothing Avalon promises to preserve about a guild lives only in a mutable row. **Gap:** the events are durable, but no `GET /guilds/{id}/history` endpoint or indexer read model exposes them to clients yet, so the Hub's history card says so plainly instead of fabricating a feed from the current roster.
+The history is reconstructable from [protocol events](./protocol-events.md); the roster is rebuilt from it by the [indexer](../architecture/query-and-indexing.md). These events are public ledger entries naming the member, whatever the guild's `roster_visibility` says: that setting gates the node API's roster read only (see [privacy](./privacy.md#what-the-ledger-makes-public)). Nothing Avalon promises to preserve about a guild lives only in a mutable row. **Gap:** the events are durable, but no `GET /guilds/{id}/history` endpoint or indexer read model exposes them to clients yet, so the Hub's history card says so plainly instead of fabricating a feed from the current roster.
 
 ## A user's main guild
 

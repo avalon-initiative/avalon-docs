@@ -26,7 +26,7 @@ The person must grant `achievements.issue`, and `achievements.read` if the integ
 
 Issuance signs the attestation locally with the integrator's key; the server never sees the private key, only a detached signature. Two independent proofs go on the wire: a challenge-response proving the integrator's key is making this call now, and a signature over the attestation's canonical bytes proving that key authorized this specific attestation. Signing bytes are pinned by conformance vectors so every SDK and the server agree ([SDK design](../sdk/design.md#cross-sdk-conformance)).
 
-Issuance always targets the session's own identity, matching the consent model: the person granted this for themselves. It carries an `Idempotency-Key`, so a transient failure never produces a duplicate attestation. Bulk issuance submits N ordinary, independent attestations, not one claim set.
+Issuance always targets the session's own identity, matching the consent model: the person granted this for themselves. Every SDK sends a fresh `Idempotency-Key` with each issuance call, and the server replays the first result for a repeated key. Only the Rust SDK retries internally, reusing one key across its attempts. A caller that retries an issuance call itself, including with the TypeScript or C# SDK, sends a new key, and the server has no uniqueness on issued attestations, so a second attestation is issued. See [errors and retries](errors-and-retries.md#duplicate-achievement-issuance). Bulk issuance submits N ordinary, independent attestations, not one claim set.
 
 ## 6. Read a person's history
 

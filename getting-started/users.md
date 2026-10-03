@@ -14,7 +14,7 @@ This page is for people who use games, apps, or services that integrate Avalon, 
 ## What you control
 
 - **Grants.** An integrator sees only the capabilities you grant it, such as reading your friends or issuing an achievement. You can revoke a grant at any time.
-- **Visibility.** Presence and guild rosters are scoped by your own visibility settings; anyone outside the scope reads as offline.
+- **Visibility.** Presence and guild rosters are scoped by your own visibility settings; anyone outside the scope reads as offline. These settings control what a node's API returns. Friend and guild-membership events are committed to the public ledger with their details and cannot be hidden or removed there; see [privacy](../protocol/privacy.md#what-the-ledger-makes-public).
 - **Blocks.** A block is never revealed to the person who was blocked.
 
 Technical detail: [bindings](../protocol/bindings.md), [privacy](../protocol/privacy.md), [social graph](../protocol/social-graph.md).
