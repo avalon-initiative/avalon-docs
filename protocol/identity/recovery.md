@@ -1,6 +1,6 @@
 # Recovery and Rollback
 
-**Status:** Implemented — recovery finalization is caller-triggered, and rollback covers only reversals that need no other party.
+**Status:** Partially implemented — guardian recovery restores a passkey only and its events are not signed by the guardians; recovery finalization is caller-triggered, and rollback covers only reversals that need no other party.
 
 If an identity's owner loses every passkey, the only path back is social recovery: a set of the owner's friends approve a new device after a mandatory public delay. If an attacker held credentials before recovery, rollback lets the recovered owner supersede the attacker's actions with signed compensating events, without rewriting history. Both are part of [identity](../identity.md).
 
@@ -16,7 +16,7 @@ Onboarding must make the total-loss consequence of a single passkey loud and exp
 
 ## Social recovery via M-of-N guardians
 
-An owner designates guardians drawn only from their current friends, plus a threshold M of N. Changing the set requires the identity's current session (and a fresh signature to remove a guardian or raise the threshold), so an attacker holding only a not-yet-valid new device can never reach it. Naming a guardian is unilateral and takes effect immediately, but a guardian can list every identity relying on them and remove themselves without the owner's cooperation. A self-removal that drops the owner below their threshold clamps the threshold to the new guardian count rather than leaving an unsatisfiable M-of-N.
+An owner designates guardians drawn only from their current friends, plus a threshold M of N. Changing the set requires the identity's current session (and a fresh signature to remove a guardian or raise the threshold), so an attacker holding only a not-yet-valid new device can never reach it. Naming a guardian is unilateral and takes effect immediately (Planned: guardians must accept before they count, per [ADR 1135](../../architecture/decisions/1135-recovery-authorises-a-new-signing-key-with-guardian-signatures.md)), but a guardian can list every identity relying on them and remove themselves without the owner's cooperation. A self-removal that drops the owner below their threshold clamps the threshold to the new guardian count rather than leaving an unsatisfiable M-of-N.
 
 Recovery is a four-stage state machine, one `recovery_requests` record per attempt:
 
@@ -26,6 +26,12 @@ Recovery is a four-stage state machine, one `recovery_requests` record per attem
 4. **Veto or finalize.** The original owner (any session for the identity) or any current guardian may cancel before finalization. Finalization is public and idempotent, and grants nothing beyond what approvals and the elapsed delay already authorized. It inserts the pending passkey as an ordinary new passkey and never touches or revokes anything the real owner still holds.
 
 No node operator has a path that bypasses guardian approval or the delay: finalize acts only on durably recorded approvals and elapsed time. Every phase transition is durable history (`identity.recovery_configured`, `.recovery_requested`, `.recovery_approved`, `.recovery_cancelled`, `identity.recovered`; see the [event catalogue](../protocol-events-catalogue.md)).
+
+## Recovery restores a passkey, not a signing key
+
+Finalization inserts the pending passkey and records `identity.recovered` (request id and device label). It adds no Ed25519 signing key and revokes none, so a recovered owner can log in again but cannot author anything that needs a signing key. A new signing key is authorized only by a device grant approved by an already-active key ([authentication](./authentication.md#cross-device-pairing-for-clients-without-webauthn)), so an identity that has lost every signing key cannot get one back through recovery today. For the same reason the last active signing key cannot be revoked.
+
+The recovery events carry no signatures from the owner or guardians: `identity.recovery_configured` names the guardian ids and threshold, `identity.recovery_approved` carries counts the node asserts, and `identity.recovered` carries no new key or guardian evidence. A mirroring node therefore cannot verify them from the ledger. Planned: the design in [ADR 1135](../../architecture/decisions/1135-recovery-authorises-a-new-signing-key-with-guardian-signatures.md), with a signed guardian commitment, signed guardian acceptance and approvals, and one atomic `identity.recovered` v2 that carries the new key. None of it is built.
 
 Not built: a background sweep that finalizes an eligible request the moment its delay elapses (today the recovering device's client triggers finalize), and full Rust and C# SDK surface for this flow beyond the account-level session helpers.
 

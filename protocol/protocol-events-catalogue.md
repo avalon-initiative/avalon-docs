@@ -16,9 +16,9 @@ Naming is `<domain>.<past-tense-verb>`. A kind marked **built** has an enum-back
 
 | Kind | State | Issuer to subject | Payload | Drives | Attribution |
 | --- | --- | --- | --- | --- | --- |
-| `identity.created` | built | identity to identity | `identity_id`, `display_name` (the unique handle) | identities | verified at write (identity signing key) |
-| `identity.signing_key_added` | built | identity to identity | `signing_key_id`, `public_key`, `device_label`, `approved_by_signing_key_id`, `identity_id` | signing keys (authoring node and mirror-only projections) | verified at write (approving device's key, or self for the first key) |
-| `identity.signing_key_revoked` | built | identity to identity | `signing_key_id` | signing keys | node |
+| `identity.created` | built | identity to identity | v2: `identity_id` (64-character hex, derived from the key), `ticket_id`, `display_name` (the unique handle), `public_key` (inception key, base64), `signature` | identities | embedded proof (inception key over the v2 signing bytes) |
+| `identity.signing_key_added` | built | identity to identity | v2: `signing_key_id`, `public_key`, `device_label`, `approved_by_signing_key_id`, `identity_id`, `kind` (`inception` or `device_grant`), and for a device grant `grant_id` and `approval_signature` | signing keys (authoring node and mirror-only projections) | embedded proof for a device grant (approving device's signature); the inception key carries none and is valid when it derives the identity id |
+| `identity.signing_key_revoked` | built | identity to identity | v2: `identity_id`, `signing_key_id`, `revoked_by_signing_key_id`, `signature` | signing keys | embedded proof (an active key of the same identity) |
 | `identity.passkey_registered` | built | identity to identity | `passkey_id`, `identity_id`, `credential_id`, `passkey_data` (public WebAuthn material only), `label` | passkeys | node |
 | `identity.passkey_revoked` | built | identity to identity | `passkey_id`, `identity_id` | passkeys | node |
 | `identity.recovery_configured` | built | identity to identity | `guardian_ids`, `threshold` | recovery settings | node (session-authenticated) |
@@ -27,6 +27,8 @@ Naming is `<domain>.<past-tense-verb>`. A kind marked **built** has an enum-back
 | `identity.recovery_cancelled` | built | owner or guardian to identity | `request_id`, `cancelled_by`, `reason` | recovery requests | node |
 | `identity.recovered` | built | identity to identity | `request_id`, `device_label` | passkeys | node |
 | `profile.updated` | built | identity to identity | sparse: only the changed fields among `display_name`, `avatar_url`, `bio`, `favorite_genres`, `pronouns`, `banner_url`, `status`, `links`, `timezone`, `theme_color`, `location`, `main_guild` | profiles | node |
+
+The three v2 identity kinds replace v1, which decoders no longer accept (a sanctioned exception to the [versioning policy](./protocol-events.md#versioning-policy)). The recovery kinds and the passkey kinds carry no signature. The `recovery` signing-key kind is defined in the payload types and no emitter produces it. Embedded proofs on mirroring nodes are not yet verified at projection time; see [identity](./identity.md#what-is-not-built-yet).
 
 ## Integrators, bindings, and issuers
 

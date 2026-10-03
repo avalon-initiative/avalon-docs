@@ -35,14 +35,14 @@ Hosted Avalon node
     cannot produce "Integrator A issued ..." when Integrator A did not
 ```
 
-This holds because every durable claim of that kind is signed by the party with authority over it and the log is independently verifiable ([settlement](../architecture/settlement.md)). The guarantee extends to identities: an identity signs its own `identity.created` with its signing key, verified independently of the WebAuthn ceremony, so a node cannot mint an identity that never registered. Note the scope: only some event kinds carry a signature by the actor (see [signing posture](./protocol-events.md#signing-posture)); for node-attributed kinds, the log proves what the node recorded, not that the actor signed it.
+This holds because every durable claim of that kind is signed by the party with authority over it and the log is independently verifiable ([settlement](../architecture/settlement.md)). The guarantee extends to identities: an identity signs its own `identity.created` with its inception key, the identity id is derived from that key, and the signature rides in the ledger event, so any reader who verifies it can tell that a node did not mint an identity that never registered. Limit: nodes that mirror and project another shard's identity events do not yet verify those signatures when projecting (see [identity](./identity.md#what-is-not-built-yet)), so today the guarantee holds for a reader who verifies and not yet for what a mirroring node projects. Note the scope: only some event kinds carry a signature by the actor (see [signing posture](./protocol-events.md#signing-posture)); for node-attributed kinds, the log proves what the node recorded, not that the actor signed it.
 
 ## Key domains
 
 | Key | Held by | Compromise means | Response |
 | --- | --- | --- | --- |
 | identity passkey | the identity | an attacker can log in as that identity | revoke it from a session with another passkey; total loss if it was the only one, recoverable through [guardian recovery](./identity/recovery.md) if configured |
-| identity signing key | the identity (per device) | an attacker can author signed events and fresh signatures going forward | revoke the key (`POST /me/devices/{id}/revoke`); rotation is add-then-revoke; events signed by the old key stay valid, the same principle as issuer keys |
+| identity signing key | the identity (per device) | an attacker can author signed events and fresh signatures going forward | revoke the key (`POST /me/devices/{id}/revoke`, signed by an active key of the identity; the last active key cannot be revoked); rotation is add-then-revoke; events signed by the old key stay valid, the same principle as issuer keys. Losing every signing key cannot be repaired today, since recovery restores a passkey and not a signing key |
 | issuer key | the integrator | an attacker can issue authentic-looking claims under that integrator | revoke the key as of T; claims after T are rejected, claims before T are untouched |
 | log operator key (tree heads only) | the settlement operator | an attacker can sign bogus tree heads | mirrors and witnesses detect divergence through gossiped, cosigned heads; there is no validator set (see [witness cosigning](./witness-cosigning.md)) |
 

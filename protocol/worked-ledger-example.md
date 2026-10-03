@@ -8,7 +8,7 @@ Payload field names and nesting follow the typed payload structs in the protocol
 
 ## The cast
 
-- **Nova**: a user, identity id `a1b2c3d4-...-000001`.
+- **Nova**: a user, identity id `4c1d…a9e0`. A real identity id is 64 lowercase hex characters derived from the identity's first signing key, see [identity](./identity.md#the-identity-id); ids here are abbreviated with `…`.
 - **Ashen Realms** (`ashen-realms`): a `game`-category issuer Nova plays.
 - **The Wandering Blades**: a guild Nova founds.
 
@@ -16,17 +16,23 @@ Payload field names and nesting follow the typed payload structs in the protocol
 
 ### 1. Nova creates an identity
 
-The only event in this sequence signed by the identity's own key rather than attributed by the node, since it brings that key into existence.
+The only event in this sequence that embeds a signature by the identity's own key rather than being attributed by the node, since it brings that key into existence. The id is derived from the `public_key` in the payload, and the signature covers the network id, the shard id, the registration ticket, the id, the key, and the display name. Registration also writes `identity.passkey_registered` and an `identity.signing_key_added` event for the inception key, omitted here.
 
 ```json
 {
   "id": "e0000000-0000-0000-0000-000000000001",
   "kind": "identity.created",
-  "issuer": "identity:a1b2c3d4-...-000001:self:created",
-  "subject": "identity:a1b2c3d4-...-000001:self:created",
-  "payload": { "identity_id": "a1b2c3d4-...-000001", "display_name": "Nova" },
+  "issuer": "identity:4c1d…a9e0:self:created",
+  "subject": "identity:4c1d…a9e0:self:created",
+  "payload": {
+    "identity_id": "4c1d…a9e0",
+    "ticket_id": "t0000000-0000-0000-0000-000000000001",
+    "display_name": "Nova",
+    "public_key": "…base64 of the 32 raw key bytes…=",
+    "signature": "…base64…="
+  },
   "timestamp": "2027-01-04T09:12:03Z",
-  "version": 1
+  "version": 2
 }
 ```
 
@@ -40,8 +46,8 @@ Only fields that changed appear in the payload. An untouched field is absent, no
 {
   "id": "e0000000-0000-0000-0000-000000000002",
   "kind": "profile.updated",
-  "issuer": "identity:a1b2c3d4-...-000001:self:profile_updated",
-  "subject": "identity:a1b2c3d4-...-000001:self:profile_updated",
+  "issuer": "identity:4c1d…a9e0:self:profile_updated",
+  "subject": "identity:4c1d…a9e0:self:profile_updated",
   "payload": { "bio": "Full-time dragon slayer, part-time guild officer.", "pronouns": "she/her" },
   "timestamp": "2027-01-04T09:18:47Z",
   "version": 1
@@ -56,11 +62,11 @@ Ashen Realms already exists on the network from its own earlier `game.registered
 {
   "id": "e0000000-0000-0000-0000-000000000003",
   "kind": "game.binding_established",
-  "issuer": "identity:a1b2c3d4-...-000001:self:binding_established",
+  "issuer": "identity:4c1d…a9e0:self:binding_established",
   "subject": "game:ashen-realms:self:binding_established",
   "payload": {
     "binding_id": "b1000000-0000-0000-0000-000000000001",
-    "identity_id": "a1b2c3d4-...-000001",
+    "identity_id": "4c1d…a9e0",
     "game_id": "9f000000-0000-0000-0000-00000000ash1",
     "slug": "ashen-realms"
   },
@@ -80,11 +86,11 @@ Ashen Realms first defines `dragon_slayer` (`achievement.defined`, not repeated 
   "id": "e0000000-0000-0000-0000-000000000004",
   "kind": "achievement.issued",
   "issuer": "game:ashen-realms:self:achievement_issued",
-  "subject": "identity:a1b2c3d4-...-000001:self:achievement_issued",
+  "subject": "identity:4c1d…a9e0:self:achievement_issued",
   "payload": {
     "id": "at100000-0000-0000-0000-000000000001",
     "issuer": "game:ashen-realms",
-    "subject": "a1b2c3d4-...-000001",
+    "subject": "4c1d…a9e0",
     "achievement": "game:ashen-realms:achievement:dragon_slayer",
     "evidence": { "replay_id": "r-88213" },
     "proof": { "key_id": "k2000000-0000-0000-0000-000000000001", "algorithm": "ed25519", "bytes": "MEUCIQDx3f...base64...=" }
@@ -102,14 +108,14 @@ Ashen Realms first defines `dragon_slayer` (`achievement.defined`, not repeated 
 {
   "id": "e0000000-0000-0000-0000-000000000005",
   "kind": "guild.created",
-  "issuer": "identity:a1b2c3d4-...-000001:self:guild_created",
+  "issuer": "identity:4c1d…a9e0:self:guild_created",
   "subject": "guild:g3000000-0000-0000-0000-000000000001:self:guild_created",
   "payload": {
     "guild_id": "g3000000-0000-0000-0000-000000000001",
     "name": "The Wandering Blades",
     "tag": "WB",
     "description": "Casual raiders, EU evenings.",
-    "owner": "a1b2c3d4-...-000001"
+    "owner": "4c1d…a9e0"
   },
   "timestamp": "2027-02-15T18:30:00Z",
   "version": 1
@@ -122,14 +128,14 @@ A friend, Kestrel, accepts an invite and joins:
 {
   "id": "e0000000-0000-0000-0000-000000000006",
   "kind": "guild.member_added",
-  "issuer": "identity:b7000000-0000-0000-0000-00000000kes1:self:guild_member_added",
+  "issuer": "identity:9b27…03f1:self:guild_member_added",
   "subject": "guild:g3000000-0000-0000-0000-000000000001:self:guild_member_added",
   "payload": {
     "guild_id": "g3000000-0000-0000-0000-000000000001",
-    "identity_id": "b7000000-0000-0000-0000-00000000kes1",
+    "identity_id": "9b27…03f1",
     "role_index": 0,
     "via": "invite",
-    "actor": "a1b2c3d4-...-000001"
+    "actor": "4c1d…a9e0"
   },
   "timestamp": "2027-02-16T09:05:44Z",
   "version": 1
@@ -174,7 +180,7 @@ None of the following are protocol events, on this or any user's ledger, by desi
 - **Ordinary gameplay**: HP, XP ticks, movement, combat, matchmaking, Ashen Realms' own economy. Avalon sees none of it unless an integrator deliberately describes or exposes it through Integrator Space.
 - **Typing indicators and connection state**: never durable, and not even stored beyond what a live connection needs.
 
-A ledger reader (a mirror, an auditor, an indexer rebuild) sees exactly the seven events above for this part of the story: nothing about Nova's online status, nothing said in guild chat, nothing about how she fights dragons. That boundary is the point. Avalon durably remembers facts that matter across integrators and to the user's portable identity, and stays out of everything that is just one integrator being an integrator.
+A ledger reader (a mirror, an auditor, an indexer rebuild) sees only events like the seven above for this part of the story (plus the registration and permission events omitted for brevity): nothing about Nova's online status, nothing said in guild chat, nothing about how she fights dragons. That boundary is the point. Avalon durably remembers facts that matter across integrators and to the user's portable identity, and stays out of everything that is just one integrator being an integrator.
 
 ## Related
 
