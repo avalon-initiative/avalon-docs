@@ -1,6 +1,6 @@
 # Identity
 
-**Status:** Implemented
+**Status:** Partially implemented — self-certifying ids and signed key changes are built in the server; verification of those signatures on mirroring nodes, SDK registration, and recovery of a signing key are not.
 
 An Avalon identity is a self-custodied keypair plus a small amount of self-described profile data. It belongs to the person who holds the keys, not to any integrator, node, or database, and it is the one thing that survives any single integrator or server disappearing. Integrators establish their own scoped participation under it (see [bindings](./bindings.md)); the identity itself stays the same across all of them.
 
@@ -26,7 +26,27 @@ Avalon Identity
           └── Integrator B -> characters (integrator-owned)
 ```
 
-An identity is an opaque, stable handle (`IdentityId`, a UUID). It is never derived from a display name, a username, a wallet address, or anything its owner might want to change later. Everything human-facing hangs off it as profile data. The design decision that identity is separate from any game character is recorded in [ADR 0067](../architecture/decisions/0067-identity-is-separate-from-game-characters.md).
+An identity is an opaque, stable handle (`IdentityId`) derived from the identity's first signing key, as described in [the identity id](#the-identity-id). It is never derived from a display name, a username, a wallet address, or anything its owner might want to change later. Everything human-facing hangs off it as profile data. The design decision that identity is separate from any game character is recorded in [ADR 0067](../architecture/decisions/0067-identity-is-separate-from-game-characters.md).
+
+## The identity id
+
+An identity id is the lowercase hex SHA-256 of the domain tag `avalon-identity-id-v1` followed by the identity's inception Ed25519 public key (32 raw bytes): exactly 64 characters of `[0-9a-f]`, with no prefix. Parsing is strict and never normalizes; uppercase, any other length, UUID text, and `id:` or `node:` prefixes are all rejected. The domain tag keeps the id distinct from the `node:` shard id derived from the same key. The decision is recorded in [ADR 1129](../architecture/decisions/1129-identity-ids-are-self-certifying.md).
+
+- **Commits to the first key only.** Adding, rotating, or revoking later signing keys, and recovery, never change the id. Different inception keys give different ids, so two people cannot be handed a clashing id by construction, and no registry is needed. This does not by itself stop a hostile shard from publishing events for someone else's id; rejecting those is the verification listed under [what is not built yet](#what-is-not-built-yet).
+- **Key acceptability.** The inception key must be a canonical Ed25519 encoding and not of small order. Keys with a torsion component that are neither are accepted, because the id binds the exact key bytes. Identity signatures are verified strictly (small-order components and non-canonical signatures are rejected).
+- **Registration.** `POST /identities/register/start` takes `identity_id`, `event_signing_public_key` (base64 raw key), and `display_name`. The server recomputes the id from the key and refuses a mismatch (400 `IDENTITY_ID_MISMATCH`), an unacceptable key or malformed id (400 `INVALID_IDENTITY_ID`), and an id already present on the node (409 `IDENTITY_ID_TAKEN`). Its response carries the ticket, the ledger's network id, and the shard id the node authors. `POST /identities/register/finish` takes a signature by the inception key over the `identity.created` v2 bytes (below) and emits `identity.created`, the first passkey event, and `identity.signing_key_added` for the inception key.
+- **The signed bytes.** `avalon:identity.created:v2:{len(network_id)}:{network_id}:{len(shard_id)}:{shard_id}:{ticket_id}:{identity_id}:{public_key_hex}:{display_name}`, where `len` is the decimal UTF-8 byte length. Binding the network, shard, and ticket means a copied payload does not verify in another shard or ceremony. The display name comes last so a `:` in it is harmless.
+- **On the ledger.** `identity.created` v2 carries `identity_id`, `ticket_id`, `display_name`, `public_key` (base64), and `signature`, so a reader holding the entry, the network id, and the shard id can recompute the id and verify the signature without asking the node. Version 1 of `identity.created`, `identity.signing_key_added`, and `identity.signing_key_revoked` is no longer decoded.
+- **Display names** stay best-effort unique per node and are never the key anything hangs off. Registration refuses a name that, after dropping invisible characters, trimming, and lowercasing, is shaped like an identity id, and names with control, zero-width, or bidirectional-override characters, or longer than 128 characters.
+- **WebAuthn.** The WebAuthn user handle is the first 16 bytes of the id, because the WebAuthn library takes a UUID.
+
+The conformance vectors `identity-id.json`, `identity-created-signing.json`, `device-grant-approval.json`, and `signing-key-revoked.json` pin the derivation and the signing bytes. They are exercised only by the protocol repository's runner so far; the SDK runners skip them.
+
+### What is not built yet
+
+- **Verification on mirroring nodes.** A node that mirrors a shard and projects its identity events checks only shape and derivation, not signatures. For `identity.created` it creates the identity row only when the id derives from an acceptable key and matches the id in the entry's issuer and subject; for an inception `identity.signing_key_added` it accepts the key only when it derives the id. It does not yet verify the `identity.created` signature, the device-grant `approval_signature`, or the `identity.signing_key_revoked` signature when projecting, and the profile projection still applies a repeated `identity.created` for an existing id as an upsert instead of reporting a conflict. Passkey events and the recovery events carry no proof. Cross-node login does verify the creation signature, against the network and shard it fetched from, before it provisions a local stub. This verification is tracked in [avalon-protocol#1130](https://github.com/avalon-initiative/avalon-protocol/issues/1130).
+- **SDK support.** The Rust and TypeScript registration helpers still generate a random UUID as the identity id, and send no `event_signing_public_key` in the start request, so they do not register against a server with the current contract. All three SDKs type identity ids as UUIDs or GUIDs, and the C# SDK has no registration helper. SDK support for the derivation, the v2 signing bytes, and strict verification is follow-up work.
+- **Recovering a signing key.** See [recovery](./identity/recovery.md#recovery-restores-a-passkey-not-a-signing-key).
 
 ## Self-described metadata is self-expression, not fact
 
@@ -49,12 +69,12 @@ Anything Avalon promises to preserve must be reconstructable from protocol histo
 
 | State | Durable? | Canonical record | Notes |
 | --- | --- | --- | --- |
-| identity exists, `created_at` | yes | `identity.created` | self-signed by the identity's own key |
+| identity exists, `created_at` | yes | `identity.created` | v2 carries the inception key and its signature, so the id and signature can be re-verified from the ledger |
 | `display_name` | yes | `identity.created`, then `profile.updated` | |
 | other profile fields | yes | `profile.updated` | sparse payload: only changed fields are present. List fields (`favorite_genres`, `links`) are always fully replaced when the key is present, including with `[]` |
 | `main_guild` | yes | `profile.updated` | must name a guild the identity currently belongs to; cleared automatically if the identity leaves that guild |
 | WebAuthn passkey(s) | yes | `identity.passkey_registered` / `.passkey_revoked` | public credential material only, never anything secret |
-| event-signing public key(s) | yes | `identity.signing_key_added` / `.signing_key_revoked` | a separate durable fact from the `identity.created` issuer field, which is a `GlobalId` string and not key bytes |
+| event-signing public key(s) | yes | `identity.signing_key_added` / `.signing_key_revoked` | a separate durable fact from the `identity.created` issuer field, which is a `GlobalId` string and not key bytes; a device key carries its approving device's signature and a revocation carries the revoking key's signature |
 | recovery configuration and attempts | yes | `identity.recovery_*`, `identity.recovered` | see [recovery](./identity/recovery.md) |
 | credentials (password hash) | no | none | there is no password authentication anywhere in the protocol |
 | sessions and tokens | no | none | bearer tokens are node-local; a separate self-signed continuation credential is verified statelessly |
@@ -79,15 +99,16 @@ The real limit is authentication. A WebAuthn passkey is scoped to the node (its 
 ## Open questions
 
 - Recovery when every passkey is lost and no guardians are configured. The answer today is total loss of the identity.
+- Recovery when every signing key is lost. Guardian recovery restores a passkey only, so nothing can authorize a replacement signing key today. The design is decided in [ADR 1135](../architecture/decisions/1135-recovery-authorises-a-new-signing-key-with-guardian-signatures.md) and not built.
 - Whether identities can be transferred.
 - The minimum replication guarantee for identity-bearing shards, so one operator's node disappearing cannot strand the identities that live there.
 
 ## Implementation
 
-Status: implemented, running end to end against Postgres.
+Status: the server side is implemented, running end to end against Postgres; the gaps are listed under [what is not built yet](#what-is-not-built-yet).
 
 - Types: [`crates/protocol/src/identity.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/identity.rs) (`Identity`, `Profile`, `Genre`) and [`ids.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/ids.rs). The protocol crate has no reference to WebAuthn, Ed25519 verification, or any character schema.
-- Registration, login, and profile endpoints: [`crates/server/src/handlers.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/handlers.rs). Registration verifies both the WebAuthn ceremony and the Ed25519 event signature before writing anything.
+- Registration, login, and profile endpoints: [`crates/server/src/handlers.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/handlers.rs). Registration verifies both the WebAuthn ceremony and the Ed25519 event signature before writing anything. The derivation and signing-byte builders are in [`identity_id.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/identity_id.rs) and the key policy in [`ed25519_key.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/ed25519_key.rs).
 - Wire API: [OpenAPI document](https://github.com/avalon-initiative/avalon-protocol/blob/main/docs/generated/openapi.json); see [API specification](./api.md).
 
 ## Related
@@ -97,4 +118,5 @@ Status: implemented, running end to end against Postgres.
 - [Identity aggregate view](./identity-aggregate-view.md)
 - [Security model](./security-model.md)
 - [ADR 0067: identity is separate from game characters](../architecture/decisions/0067-identity-is-separate-from-game-characters.md)
+- [ADR 1129: identity ids are self-certifying](../architecture/decisions/1129-identity-ids-are-self-certifying.md)
 - [Glossary](../reference/glossary.md)

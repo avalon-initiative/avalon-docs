@@ -10,7 +10,7 @@ Two nodes can each accept a layer-1 edit (say, a profile change through one node
 
 ## The chain
 
-Every layer-1 event belongs to its own identity's chain: a per-identity sequence number (monotonic within that identity and unrelated to the global ledger sequence) plus a hash pointer to the previous event in that chain. In the ledger the position is stored inside the entry's payload under the reserved key `_identity_chain` (`{seq, prev_hash}`), so it is covered by the entry hash and reaches every mirror without a wire-format change. Kinds that do not participate (achievement issuance, integrator registration, `identity.created` itself) carry no position.
+Every layer-1 event belongs to its own identity's chain: a per-identity sequence number (monotonic within that identity and unrelated to the global ledger sequence) plus a hash pointer to the previous event in that chain. In the ledger the position is stored inside the entry's payload under the reserved key `_identity_chain` (`{seq, prev_hash}`), so it is covered by the entry hash and reaches every mirror without a wire-format change. Kinds that do not participate (achievement issuance, integrator registration, `identity.created` itself, and the first passkey and inception signing-key events written at registration) carry no position. The chain does not verify who authored an event; an identity's key chain (the inception key derives the id, and each later key is signed in by an active key) is described in [the identity id](../identity.md#the-identity-id).
 
 ## The deterministic rule
 

@@ -58,6 +58,7 @@ Avalon reuses ordinary words (identity, event, node, chain) for specific, narrow
 | Term | Means | Does not mean | See also |
 | --- | --- | --- | --- |
 | Passkey | A WebAuthn credential used to log in. An identity can have several. | The signing key. | [Identity](../protocol/identity.md) |
+| Identity id | The 64-character lowercase hex SHA-256 of the domain tag `avalon-identity-id-v1` and the identity's first Ed25519 public key. It never changes when keys are added, rotated, or recovered. | A UUID, a display name, or the `node:` id of a shard. | [Identity](../protocol/identity.md#the-identity-id) |
 | Ed25519 signing key | The separate key, not the login passkey, that signs events an identity authors. | The login credential. | [Identity](../protocol/identity.md) |
 | Social recovery | Recovering an identity when passkeys are lost, through approval by M of N designated guardians. | A centrally held backdoor. | [Identity](../protocol/identity.md) |
 | Cross-device pairing | Adding a device or passkey to an existing identity. | Creating a second identity. | [Identity](../protocol/identity.md) |

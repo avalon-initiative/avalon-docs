@@ -11,12 +11,12 @@ The design follows how passkey-based wallets are built: the passkey is a secure 
 | Key | Proves | Used for |
 | --- | --- | --- |
 | WebAuthn passkey | interactive presence: "the holder of this device authorized this request, right now" | the entire login mechanism |
-| Ed25519 signing key | authorship of a specific durable event | signing `identity.created`, approving new device keys, fresh signatures (below) |
+| Ed25519 signing key | authorship of a specific durable event | signing `identity.created`, approving new device keys, revoking keys, fresh signatures (below) |
 
 - **Passkeys.** Multiple passkeys per identity are supported. Any registered passkey authenticates the identity, none is privileged, and each can be named and revoked independently. Registering or revoking one emits a durable `identity.passkey_registered` or `identity.passkey_revoked` event carrying only public credential material, so a node that only mirrored the identity's history can verify a fresh login for it. Revoking the last remaining passkey requires explicit confirmation.
-- **Signing key.** The `identity.created` event is signed by this key and its issuer is `identity:<id>:self:created`, not a node. A hosted node therefore cannot fabricate an identity that never registered, the same guarantee that stops a node fabricating an integrator's attestation (see [security model](../security-model.md)). Losing this key alone is not catastrophic: the identity still logs in and can add a new signing key from an authenticated session.
+- **Signing key.** The identity's first signing key (the inception key) signs `identity.created`, and the identity id is derived from that key (see [the identity id](../identity.md#the-identity-id)). The event's issuer is `identity:<id>:self:created`, not a node. A hosted node therefore cannot fabricate an identity that never registered, the same guarantee that stops a node fabricating an integrator's attestation (see [security model](../security-model.md)). Later keys are added by device grant and never change the id. Losing one device's key while another active key exists is recoverable: the other device approves a replacement. Losing every signing key is not: the passkey still logs in, but a new signing key can only be authorized by an active one, and recovery restores a passkey and not a signing key (see [recovery](./recovery.md#recovery-restores-a-passkey-not-a-signing-key)).
 
-Login is identity-id-first, not fully usernameless. True discoverable-credential login would need attested resident keys, a heavier registration path that is not built. The property that matters still holds: no shared secret, and a real challenge-response proof every time.
+Login is identity-id-first, not fully usernameless (the identity id is the 64-character hex id, and the WebAuthn user handle is its first 16 bytes). True discoverable-credential login would need attested resident keys, a heavier registration path that is not built. The property that matters still holds: no shared secret, and a real challenge-response proof every time.
 
 ## Two authorization tiers
 
@@ -46,7 +46,9 @@ A game engine with no embedded browser, a console, or any headless client has no
 
 The security boundary is not the secrecy of the `user_code`. Approval requires the approver's own already-authenticated session, so there is no path from knowing the code to a minted session. The code still has real entropy, a roughly 10-minute expiry, and single-use delivery (an approved token is returned exactly once).
 
-This is a different problem from adding a trusted signing device to an identity that is already authenticated somewhere. That uses a device-key grant: an already-trusted device approves a new device's public key by signing the grant, the server verifies it against the approver's active key, and a grant only ever authorizes a public key and never transfers a private one. Revocation of a signing key is unilateral: any authenticated session for the identity can revoke any of its keys, including its own.
+This is a different problem from adding a trusted signing device to an identity that is already authenticated somewhere. That uses a device-key grant: an already-trusted device approves a new device's public key by signing `avalon:device_grant.approved:v2:{grant_id}:{identity_id}:{requested_public_key_hex}`, the server verifies it against the approver's active key, and a grant only ever authorizes a public key and never transfers a private one. The requested key must be an acceptable Ed25519 key (canonical and not of small order). The resulting `identity.signing_key_added` event carries the grant id and the approval signature.
+
+Revoking a signing key also needs a signature. An authenticated session for the identity names one of its active keys (`revoked_by_signing_key_id`, which may be the key being revoked) and supplies that key's signature over `avalon:identity.signing_key_revoked:v2:{identity_id}:{signing_key_id}:{revoked_by_signing_key_id}`. The last active key cannot be revoked (409 `LAST_SIGNING_KEY`), because recovery cannot add a signing key and the identity would be locked out. Both operations return 409 `IDENTITY_CHAIN_FORKED` while the identity is forked. The server checks these signatures at write time; mirroring nodes do not yet verify them when projecting (see [the identity page](../identity.md#what-is-not-built-yet)).
 
 ## Hybrid transport
 
@@ -56,7 +58,7 @@ WebAuthn's hybrid transport (a browser shows a QR code and a nearby phone unlock
 
 The reference web client derives the signing key from a freshly generated BIP39 mnemonic during registration and shows the mnemonic once, never storing it. Any device with the phrase can re-derive the identical key offline; the server only ever sees the public key. The derivation is a hash of the BIP39 seed with a versioned domain-separation label, not a hierarchical derivation, since there is one signing key per device rather than a tree. Test vectors are in `conformance/vectors/bip39-mnemonic.json`.
 
-The primary path is the device-grant model above, with no phrase in the common case: each device holds its own key. **Limit:** the reference web client stores the derived secret key in unencrypted browser `localStorage`, keyed by identity id, with the same exposure as any other script-readable value on that origin. The passkey has no equivalent decision, since it never leaves the platform authenticator. Recovering or granting a signing key never authenticates a login by itself.
+The primary path is the device-grant model above, with no phrase in the common case: each device holds its own key. **Limit:** the reference web client stores the derived secret key in unencrypted browser `localStorage`, keyed by identity id, with the same exposure as any other script-readable value on that origin. The passkey has no equivalent decision, since it never leaves the platform authenticator. Granting a signing key never authenticates a login by itself.
 
 ## Session continuation across nodes
 

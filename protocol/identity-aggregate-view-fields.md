@@ -10,7 +10,7 @@ Backed by `Identity`, `Profile`, `GuildMember`, and `Friendship` in [`crates/pro
 
 | Field | Type | Used for |
 | --- | --- | --- |
-| `identity.id` | `IdentityId` (UUID) | The stable, opaque handle everything hangs off. Never derived from a name. |
+| `identity.id` | `IdentityId` (64-character lowercase hex string) | The stable, opaque handle everything hangs off. Derived from the identity's first signing key, never from a name. See [the identity id](./identity.md#the-identity-id). |
 | `identity.created_at` | timestamp | When the identity came into existence (`identity.created`). |
 | `profile.display_name` | string | Human-facing name, and the globally unique, case-insensitive handle itself (no discriminator suffix). |
 | `profile.avatar_url` | `Option<string>` | Self-chosen image, validated as an `http`/`https` URL. |
