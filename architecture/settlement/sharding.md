@@ -55,6 +55,8 @@ An owner that runs several sibling shards (`game:<slug>` and `game:<slug>/<insta
 
 Atomic writes across siblings are out of scope; each sibling stays a single-signer log.
 
+An owner's sibling shards can be listed with `GET /integrations/{slug}/shards`. The endpoint is public and read-only, and the list is advisory: it contains only the owner's shards that the answering node knows of and whose current head verified under the owner's registered keys. A sibling the node has not learned about is not listed. A known sibling whose head could not be verified is reported in `missing_shard_ids`, with `partial` set. Each entry carries the shard id, its head (`tree_size`, `root_hash`, `signing_key_id`, `created_at`) and when the node last saw it announced. The endpoint answers 404 for an integrator the node has no registration for, and 413 when the owner has more than 256 shards; the list is never truncated. A declared, owner-signed membership would make completeness verifiable and remains a separate, larger contract change.
+
 ## Automatic shard discovery
 
 At scale, hand-listing shards is itself a gap. Discovery uses two layers of gossip over a node's existing bounded peer connections, deliberately not a registry or directory node type.
