@@ -51,11 +51,12 @@ Implemented:
 - Production known-list management, head-summary gossip, the cosigning decision, equivocation confirmation and evidence, and mirror-side gathering and refresh of cosignatures.
 - Cosigned verification and known-list building in the Rust, C#, and TypeScript SDKs, checked by shared conformance vectors (`witness-cosigned-tree-head.json`, `known-list-selection.json`, `witness-announce.json`).
 - Self-certifying `node:` shards are cosigned like any other shard.
+- Cosignature gathering on the serving side: an authoring node asks the known-list witnesses, and witnesses it only knows from its peer directory, for their cosignature over its own newest head every 5 seconds, stores the ones that verify for that exact head, and refreshes any older than a third of the freshness window, so a client that connects to the author directly can reach a majority. A mirror likewise keeps fresh the head it actually serves, not only the newest head it has observed. A new node's known list stays short through the 30 minute probation, and the directory-sourced witnesses cover that gap within one poll.
 - Per-identity chains, once listed here as unwired, are now wired in the server; see [event chains](./identity/event-chains.md).
 
 Not done:
 
-- **The Hub does not verify cosignatures.** It checks the author signature against the pinned key through the SDK's default path.
+- **The Hub shows a short cosignature set as a key mismatch.** The Hub verifies through the SDK's `verifyNetwork()` under the default `auto` witness policy, so a head that does not carry a fresh cosigned majority is reported as `mismatch` even though its author signature verifies. A node that is still catching up looks the same as a wrong key. A distinct "catching up" result needs a response field and an SDK change, tracked in the protocol repository.
 - **No witness policy in the trust-anchor entry.** The list is unchanged: same pinned key, same seed nodes. Whether an entry should carry witness keys or a client policy is undecided.
 - **Resistance, not proof.** An attacker who controls most of a victim's known witnesses can still mislead that victim. The diversity cap, probation, anchors, and the vouch requirement raise the cost and do not remove it.
 
