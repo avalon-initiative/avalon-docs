@@ -2,11 +2,11 @@
 
 **Status:** Implemented
 
-A guild has chat channels and scheduled events. Channel structure is durable protocol history, but the messages inside channels and the guild events themselves are deliberately "hot state" that never touches the ledger. This page states what is durable, what is not, and the retention rules. The concept is in [guilds](../guilds.md).
+A guild has chat channels and scheduled events. Channel structure changes are recorded as protocol events (the channel table itself is server-owned and is not rebuilt from them), but the messages inside channels and the guild events themselves are deliberately "hot state" that never touches the ledger. This page states what is durable, what is not, and the retention rules. The concept is in [guilds](../guilds.md).
 
 ## Channels
 
-Channel structure (create, rename, archive) is durable history: `guild.channel_created`, `guild.channel_renamed`, and `guild.channel_archived` are written in the same transaction as the row change, gated on `manage_channels`. Every guild is seeded with a `general` channel. A channel can be:
+Channel structure (create, rename, archive) is durable history: `guild.channel_created`, `guild.channel_renamed`, and `guild.channel_archived` are written in the same transaction as the row change, gated on `manage_channels`. The `guild_channels` table is server-owned: these events are recorded but not replayed, so a rebuild does not restore channels. Every guild is seeded with a `general` channel. A channel can be:
 
 - **announcement-only**: posting then requires the `channel_post` permission for that channel (through the override layer) instead of "any current member may post". No role holds `channel_post` in its base list by default.
 - given a **topic**: a short line up to 200 characters, never stored empty.
