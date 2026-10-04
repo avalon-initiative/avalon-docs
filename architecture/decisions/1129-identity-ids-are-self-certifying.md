@@ -42,7 +42,7 @@ Identity ids become self-certifying.
 
 ## Implementation state
 
-This section is not part of the recorded decision. The derivation, signing bytes, vectors, server, schema, and API (#1133, #1134) are in the protocol repository's main branch; see [identity](../../protocol/identity.md#the-identity-id). The SDKs (0.1.6) implement the client side. Projection-time verification (#1130) is not built; see [what is not built yet](../../protocol/identity.md#what-is-not-built-yet).
+This section is not part of the recorded decision. The derivation, signing bytes, vectors, server, schema, and API (#1133, #1134) are in the protocol repository's main branch; see [identity](../../protocol/identity.md#the-identity-id). The SDKs (0.1.6) implement the client side. Projection-time verification (#1130) is built: mirroring nodes verify identity events before projecting them and accept key events only from an identity's home shards, `core`, or their own stream. The name rule differs from the recorded text: the first identity to hold a name keeps it and a later claimant of a mirrored name is stored as `name~<id prefix>`, rather than the earliest ledger position winning. What remains open is listed under [what is not built yet](../../protocol/identity.md#what-is-not-built-yet); see also [projection-time verification](../../protocol/identity.md#projection-time-verification).
 
 ## Related
 

@@ -28,7 +28,7 @@ Naming is `<domain>.<past-tense-verb>`. A kind marked **built** has an enum-back
 | `identity.recovered` | built | identity to identity | `request_id`, `device_label` | passkeys | node |
 | `profile.updated` | built | identity to identity | sparse: only the changed fields among `display_name`, `avatar_url`, `bio`, `favorite_genres`, `pronouns`, `banner_url`, `status`, `links`, `timezone`, `theme_color`, `location`, `main_guild` | profiles | node |
 
-The three v2 identity kinds replace v1, which decoders no longer accept (a sanctioned exception to the [versioning policy](./protocol-events.md#versioning-policy)). The recovery kinds and the passkey kinds carry no signature. The `recovery` signing-key kind is defined in the payload types and no emitter produces it. Embedded proofs on mirroring nodes are not yet verified at projection time; see [identity](./identity.md#what-is-not-built-yet).
+The three v2 identity kinds replace v1, which decoders no longer accept (a sanctioned exception to the [versioning policy](./protocol-events.md#versioning-policy)). The recovery kinds and the passkey kinds carry no signature. The `recovery` signing-key kind is defined in the payload types and no emitter produces it. Embedded proofs are verified on mirroring nodes at projection time, and the unsigned kinds are accepted there only from the network's `core` shard and the node's own stream; see [identity](./identity.md#projection-time-verification). Finalizing a recovery also emits one `identity.passkey_revoked` for each passkey it replaces.
 
 ## Integrators, bindings, and issuers
 

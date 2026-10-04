@@ -15,6 +15,22 @@ Peer URLs arrive through gossip, so they are attacker-influenced. Before a node 
 - IPv4-mapped IPv6 addresses are judged as the IPv4 address they carry.
 - The check covers every address a host resolves to, and the request is then pinned to a checked address, so a different DNS answer at connect time cannot change the destination.
 - Outbound clients follow no redirects, use no proxy, and carry a timeout.
+- The node-to-node fetches in the peer, gossip, shard, mirroring, replication, chat replication, mirror push, and head-conflict confirmation code go through a guarded client. It checks every address a hostname resolves to when it connects, and follows `AVALON_ALLOW_PRIVATE_PEERS` (default false): private and loopback targets are refused unless it is true. A refusal that only that setting would lift is logged as a warning, at most once per target every five minutes. A test fails if one of those modules builds any other kind of client. A new announcer's reachability check uses a client pinned to the address that was checked.
+
+## Hostname lookups
+
+A hostname lookup is the one outbound step that cannot be cancelled once started, so lookups are bounded separately from the requests they serve.
+
+- Two pools of lookup slots: a small one (8) for names an unauthenticated caller can supply (announces, gossip, probes) and a larger one (32) for the node's own fetches to peers it already chose, so abandoned lookups of caller-supplied names cannot starve the node's own.
+- One lookup runs per host at a time; later callers wait on its answer.
+- A host that failed to resolve is refused without a new lookup for 45 seconds.
+- A lookup that has not answered after 3 seconds frees its slot and counts as a failure. The blocked call itself keeps running, so it is counted until it returns, and while 32 or more such timed-out lookups are still running, new untrusted lookups are refused outright and not cached as failures.
+- An IP literal needs no lookup and takes no slot; it is checked directly against the address policy.
+- Admission checks are limited per source address (`AVALON_ANNOUNCE_NEW_PEERS_PER_SOURCE_PER_MINUTE`, default 10) and by an in-flight limit (`AVALON_ANNOUNCE_MAX_CONCURRENT_CHECKS`) that is never above the untrusted pool, and both apply before any lookup. One gossip exchange spends at most 10 seconds resolving unseen shard URLs, and stops after 8 failed lookups.
+
+## Head-conflict confirmation
+
+When gossip shows two different roots for the same shard and tree size, the node fetches the full cosignature detail from the reporting peers to confirm it. That work is capped: at most 4 confirmations run at once, one per shard and tree size, and one reporter holds at most one slot. One of the slots is reserved for a reporter that is a bound peer this node has itself completed at least 5 announce round trips with; a handshake, admission, or shard gossip does not count, because a fresh libp2p id costs nothing. A dropped conflict resurfaces on the next gossip round.
 
 ## Peer table bounds
 

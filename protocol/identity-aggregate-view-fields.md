@@ -12,7 +12,7 @@ Backed by `Identity`, `Profile`, `GuildMember`, and `Friendship` in [`crates/pro
 | --- | --- | --- |
 | `identity.id` | `IdentityId` (64-character lowercase hex string) | The stable, opaque handle everything hangs off. Derived from the identity's first signing key, never from a name. See [the identity id](./identity.md#the-identity-id). |
 | `identity.created_at` | timestamp | When the identity came into existence (`identity.created`). |
-| `profile.display_name` | string | Human-facing name, and the globally unique, case-insensitive handle itself (no discriminator suffix). |
+| `profile.display_name` | string | Human-facing name, and the globally unique, case-insensitive handle itself (no discriminator suffix on this node; a name taken by another identity on a mirrored shard is stored as `name~<id prefix>`, see [names across nodes](./identity.md#names-across-nodes)). |
 | `profile.avatar_url` | `Option<string>` | Self-chosen image, validated as an `http`/`https` URL. |
 | `profile.banner_url` | `Option<string>` | A second image slot for a profile header, same validation. |
 | `profile.bio` | `Option<string>` | Free-text self-description, up to 500 characters. |
