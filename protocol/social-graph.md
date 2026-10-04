@@ -40,7 +40,7 @@ The same never-reveal rule extends to direct and small-group conversations: a se
 
 ## Handles and discovery
 
-`display_name` is the handle: globally unique and case-insensitive, with no discriminator suffix. Uniqueness is enforced at the write itself by an index, so a concurrent writer cannot race past a prior check, and a taken name is a hard rejection. This follows the current Discord scheme of a globally unique handle rather than the deprecated `name#1234` scheme, whose small numeric space became crowded at scale. `GET /friends/handle/{handle}` resolves an exact handle to an identity id.
+`display_name` is the handle: globally unique and case-insensitive, with no discriminator suffix. Uniqueness is enforced at the write itself by an index, so a concurrent writer cannot race past a prior check, and a taken name is a hard rejection at registration. A node projecting another shard's creation stores a later claimant of a taken name as `name~<id prefix>`, so cross-node names are best effort and the id is the identity ([identity](./identity.md#names-across-nodes)). This follows the current Discord scheme of a globally unique handle rather than the deprecated `name#1234` scheme, whose small numeric space became crowded at scale. `GET /friends/handle/{handle}` resolves an exact handle to an identity id.
 
 Discovery is two-tier and private by default:
 

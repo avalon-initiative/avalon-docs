@@ -13,7 +13,7 @@ The design follows how passkey-based wallets are built: the passkey is a secure 
 | WebAuthn passkey | interactive presence: "the holder of this device authorized this request, right now" | the entire login mechanism |
 | Ed25519 signing key | authorship of a specific durable event | signing `identity.created`, approving new device keys, revoking keys, fresh signatures (below) |
 
-- **Passkeys.** Multiple passkeys per identity are supported. Any registered passkey authenticates the identity, none is privileged, and each can be named and revoked independently. Registering or revoking one emits a durable `identity.passkey_registered` or `identity.passkey_revoked` event carrying only public credential material. A node that mirrors and projects the identity's history stores these events, but passkey login reads only the credentials the node itself holds, so a passkey login on a node that never registered the passkey does not work today (see [portability](../identity.md#portability-depends-on-where-the-identitys-events-live)). Revoking the last remaining passkey requires explicit confirmation.
+- **Passkeys.** Multiple passkeys per identity are supported. Any registered passkey authenticates the identity, none is privileged, and each can be named and revoked independently. Registering or revoking one emits a durable `identity.passkey_registered` or `identity.passkey_revoked` event carrying only public credential material. Revoking a passkey also ends the sessions that passkey produced ([sessions](#sessions)). A node that mirrors and projects the identity's history stores these events, but passkey login reads only the credentials the node itself holds, so a passkey login on a node that never registered the passkey does not work today (see [portability](../identity.md#portability-depends-on-where-the-identitys-events-live)). Revoking the last remaining passkey requires explicit confirmation.
 - **Signing key.** The identity's first signing key (the inception key) signs `identity.created`, and the identity id is derived from that key (see [the identity id](../identity.md#the-identity-id)). The event's issuer is `identity:<id>:self:created`, not a node. A hosted node therefore cannot fabricate an identity that never registered, the same guarantee that stops a node fabricating an integrator's attestation (see [security model](../security-model.md)). Later keys are added by device grant and never change the id. Losing one device's key while another active key exists is recoverable: the other device approves a replacement. Losing every signing key is not: the passkey still logs in, but a new signing key can only be authorized by an active one, and recovery restores a passkey and not a signing key (see [recovery](./recovery.md#recovery-restores-a-passkey-not-a-signing-key)).
 
 Login is identity-id-first, not fully usernameless (the identity id is the 64-character hex id, and the WebAuthn user handle is its first 16 bytes). True discoverable-credential login would need attested resident keys, a heavier registration path that is not built. The property that matters still holds: no shared secret, and a real challenge-response proof every time.
@@ -42,13 +42,37 @@ A game engine with no embedded browser, a console, or any headless client has no
 
 1. The incapable client requests a pairing (`POST /auth/device/start`, unauthenticated) and receives a short human-typeable `user_code` (shown to the user, for example as a QR code) plus an opaque `device_code` only it holds.
 2. The user completes a real WebAuthn login on a capable device and approves the pairing there (`POST /auth/device/approve`).
-3. The waiting client polls (`POST /auth/device/poll`) until it receives an ordinary session token, minted by the same mechanism as a normal login.
+3. The waiting client polls (`POST /auth/device/poll`) until it receives an ordinary session token. The token is minted at that poll, in the same transaction that consumes the approval, and only if the signing key that approved it is still active ([sessions](#sessions)).
 
 The security boundary is not the secrecy of the `user_code`. Approval requires the approver's own already-authenticated session, so there is no path from knowing the code to a minted session. The code still has real entropy, a roughly 10-minute expiry, and single-use delivery (an approved token is returned exactly once).
 
 This is a different problem from adding a trusted signing device to an identity that is already authenticated somewhere. That uses a device-key grant: an already-trusted device approves a new device's public key by signing `avalon:device_grant.approved:v2:{grant_id}:{identity_id}:{requested_public_key_hex}`, the server verifies it against the approver's active key, and a grant only ever authorizes a public key and never transfers a private one. The requested key must be an acceptable Ed25519 key (canonical and not of small order). The resulting `identity.signing_key_added` event carries the grant id and the approval signature.
 
-Revoking a signing key also needs a signature. An authenticated session for the identity names one of its active keys (`revoked_by_signing_key_id`, which may be the key being revoked) and supplies that key's signature over `avalon:identity.signing_key_revoked:v2:{identity_id}:{signing_key_id}:{revoked_by_signing_key_id}`. The last active key cannot be revoked (409 `LAST_SIGNING_KEY`), because recovery cannot add a signing key and the identity would be locked out. Both operations return 409 `IDENTITY_CHAIN_FORKED` while the identity is forked. The server checks these signatures at write time; mirroring nodes do not yet verify them when projecting (see [the identity page](../identity.md#what-is-not-built-yet)).
+Revoking a signing key also needs a signature. An authenticated session for the identity names one of its active keys (`revoked_by_signing_key_id`, which may be the key being revoked) and supplies that key's signature over `avalon:identity.signing_key_revoked:v2:{identity_id}:{signing_key_id}:{revoked_by_signing_key_id}`. The last active key cannot be revoked (409 `LAST_SIGNING_KEY`), because recovery cannot add a signing key and the identity would be locked out. Revoking a signing key also ends the sessions it approved. Both operations return 409 `IDENTITY_CHAIN_FORKED` while the identity is forked. The server checks these signatures at write time, and mirroring nodes check them again when projecting ([projection-time verification](../identity.md#projection-time-verification)).
+
+## Sessions
+
+A session is an opaque bearer token: 32 random bytes, base64url-encoded, carrying no data. The node stores only its SHA-256 hash, so reading the database yields no usable token, and the token is shown once, in the response that mints it. Each session is also stored with its **origin**, the passkey or the signing key that produced it. A session is minted only with an origin credential; without one, minting fails as unauthorized.
+
+| How the session starts | Origin |
+| --- | --- |
+| Passkey login (`POST /sessions/finish`) | the passkey that authenticated |
+| Device pairing, minted when the waiting device polls | the signing key that approved the pairing |
+| Cross-node login, minted when the waiting device polls | the signing key that signed the grant |
+
+**Lifetime.** A session lasts 30 days from the moment it is minted. There is no idle expiry and no sliding renewal. A background worker prunes expired sessions every 10 minutes, in batches of at most 1000, along with long-finished pairing and cross-node login requests. An expired, unknown, or revoked session is indistinguishable to the caller: 401 either way.
+
+**Ending sessions.**
+
+- `POST /sessions/logout` ends the session the request authenticated with.
+- `GET /me/sessions` lists the caller's live sessions, newest first, with the creation and expiry times, the origin credential ids, and `current` on the one the request used.
+- `POST /me/sessions/{id}/revoke` ends one of the caller's own sessions. Any other id, including another identity's, is 404 `SESSION_NOT_FOUND`.
+- Revoking a passkey or a signing key ends the sessions it produced. A key revoked on another node and mirrored here has the same effect: a session whose origin credential has a recorded revocation is refused on every request, whichever node recorded the revocation.
+- Finalizing a [recovery](./recovery.md) ends every session of the identity.
+
+A pairing or cross-node login that was approved but not yet polled mints no session once its approving key has been revoked, and recovery discards in-flight pairings and cross-node login requests so they cannot mint one afterwards. Static shared secrets the node checks (the admin token, the internal-role key, and the settlement submit key) are compared in constant time.
+
+**Rollout.** Migration 0085 discards every existing session, because plaintext tokens cannot be hashed in place, along with in-flight pairings and cross-node login requests. Everyone logs in again after a node is upgraded. The change is in OpenAPI 0.12.0.
 
 ## Hybrid transport
 
@@ -72,9 +96,9 @@ Third-party games and tools using an SDK receive an already-authenticated sessio
 
 ## Implementation
 
-- Server: [`auth.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/auth.rs), [`passkeys.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/passkeys.rs), [`devices.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/devices.rs), [`device_pairing.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/device_pairing.rs), [`signature_gate.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/signature_gate.rs), [`continuation.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/continuation.rs).
+- Server: [`sessions.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/sessions.rs), [`auth.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/auth.rs), [`passkeys.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/passkeys.rs), [`devices.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/devices.rs), [`device_pairing.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/device_pairing.rs), [`signature_gate.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/signature_gate.rs), [`continuation.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/server/src/continuation.rs).
 - Token type: [`crates/protocol/src/continuation.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/continuation.rs).
-- Endpoints are in the [OpenAPI document](https://github.com/avalon-initiative/avalon-protocol/blob/main/docs/generated/openapi.json) under `/identities/register`, `/sessions`, `/me/passkeys`, `/me/devices`, and `/auth/device`.
+- Endpoints are in the [OpenAPI document](https://github.com/avalon-initiative/avalon-protocol/blob/main/docs/generated/openapi.json) under `/identities/register`, `/sessions`, `/me/sessions`, `/me/passkeys`, `/me/devices`, and `/auth/device`.
 - The SDK account-session types mint fresh signatures; see the [SDK design](../../sdk/design.md).
 
 ## Related
