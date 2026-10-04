@@ -14,7 +14,7 @@ An identity's friends are a network-level relationship that persists across inte
 | Blocks and mutes | Yes | server state, never durable history (below) |
 | An integrator's in-world social features (party, LFG) | No | integrator-side |
 
-A friendship is symmetric: `Friendship { a, b, since }`. It references two [identities](./identity.md), never two game characters. An identity sees the same friends list from the Hub, from Integrator A, and from Integrator B, filtered by what each viewer is allowed to see. A friendship is promised-durable history (`friend.requested`, `friend.accepted`, `friend.removed`, see the [event catalogue](./protocol-events-catalogue.md)), since it is a social fact between two identities that no integrator owns. A declined or withdrawn request is not durable; only an established or ended friendship is.
+A friendship is symmetric: `Friendship { a, b, since }`. It references two [identities](./identity.md), never two game characters. An identity sees the same friends list from the Hub, from Integrator A, and from Integrator B, filtered by what each viewer is allowed to see. A friendship is promised-durable history (`friend.requested`, `friend.accepted`, `friend.removed`, see the [event catalogue](./protocol-events-catalogue.md)), since it is a social fact between two identities that no integrator owns. A declined or withdrawn request is not durable; only an established or ended friendship is. In the code, the friendship projection is built from `friend.accepted`, `friend.removed` and the recovery reversal; `friend.requested` is recorded on the ledger, but a pending request's state is server-owned and a rebuild does not restore it.
 
 ## What an integrator sees
 

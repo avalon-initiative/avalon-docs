@@ -62,6 +62,22 @@ Bindings and permission grants are genuinely server-owned capability and grant s
 
 `achievement.issued` and `achievement.revoked` are the one asymmetric case: they get both a direct server-owned table write and an indexer projection that feeds the registry's achievement metrics. Milestone issuance and revocation deliberately get only the direct table, because those metrics are achievement-scoped by definition. Whether milestones should feed their own or a combined metric is Undecided.
 
+## Where social state lives today
+
+Which social state a rebuild restores, and how another node learns it, differs by kind. This table states what the code does today; it is not a promise about the launch design.
+
+| State | Where it lives | Restored by a rebuild from the ledger | How other nodes learn it |
+| --- | --- | --- | --- |
+| Friendships (accepted, removed) | `indexer_friendships` projection | Yes | mirroring the ledger; mirror nodes project it |
+| Pending friend requests | `friend_requests`, server-owned (`friend.requested` is recorded, no projection) | No | not replicated |
+| Guild roster (owner and members, member roles) | `indexer_guild_members` projection | Yes | mirroring the ledger |
+| Guild name and metadata, role definitions, channels, integrator associations, favorites | `guilds`, `guild_roles`, `guild_channels` and related tables, server-owned | No (events recorded, not replayed) | not replicated: mirror nodes hold roster rows but no guild row |
+| Chat messages | server-owned message tables, never on the ledger | No | relayed to interested nodes, plus a DR replica on one peer |
+| Conversations, guild events (RSVPs), blocks | server-owned, never on the ledger | No | node-local |
+| Presence | in memory | n/a | relayed |
+
+Payload pruning on a hot-tier node removes the payloads a rebuild or a mirror needs, so a pruned friend or guild entry cannot restore its relationship on that node ([privacy](../protocol/privacy.md#what-the-ledger-makes-public)). The recovery gap for server-owned guild state is [avalon-protocol#1250](https://github.com/avalon-initiative/avalon-protocol/issues/1250).
+
 ## Settlement versus querying
 
 Kept apart on purpose: the settlement component commits and verifies, and the indexer reads and aggregates. They may share a database today. They must never share a definition of truth. A server reading directly from the ledger to answer a profile lookup is exactly what this separation exists to prevent. The narrow exceptions are a caller's own history and the subject-filtered entry read ([settlement](settlement.md#query-reads-are-not-settlement-reads)). A source-scanning test guards that the main handlers never query the profile table or the ledger directly.

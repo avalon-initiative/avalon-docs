@@ -72,6 +72,8 @@ The `game.` prefix is a preserved historical spelling and applies to every integ
 | `guild.channel_renamed` | built | guild to channel | `guild_id`, `channel_id`, `name`, `announcement_only`, `topic`, `public`, `actor` | channels | node |
 | `guild.channel_archived` | built | guild to channel | `guild_id`, `channel_id`, `actor` | channels | node |
 
+**Drives** names the read model an event feeds. Only `friendships` and `rosters` are indexer projections that a rebuild replays: `friend.accepted`, `friend.removed`, `friend.relationship_reversed`, `guild.created`, `guild.member_added`, `guild.member_removed`, `guild.membership_reversed` and `guild.role_changed`. `guilds`, `roles`, `channels`, `associations` and `favorites` are server-owned tables that the handler writes directly; their events are recorded for audit and mirroring and are not replayed. `friend.requested` is recorded and has no projection. See [query and indexing](../architecture/query-and-indexing.md#where-social-state-lives-today).
+
 ## Attestations and Integrator Space
 
 | Kind | State | Issuer to subject | Payload | Drives | Attribution |
