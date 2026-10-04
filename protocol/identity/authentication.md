@@ -58,7 +58,7 @@ A session is an opaque bearer token: 32 random bytes, base64url-encoded, carryin
 | --- | --- |
 | Passkey login (`POST /sessions/finish`) | the passkey that authenticated |
 | Device pairing, minted when the waiting device polls | the signing key that approved the pairing |
-| Cross-node login, minted when the waiting device polls | the signing key that signed the grant |
+| Cross-node login, minted when the waiting device polls, or when the grant is submitted on the same-device path that carries no user code | the signing key that signed the grant |
 
 **Lifetime.** A session lasts 30 days from the moment it is minted. There is no idle expiry and no sliding renewal. A background worker prunes expired sessions every 10 minutes, in batches of at most 1000, along with long-finished pairing and cross-node login requests. An expired, unknown, or revoked session is indistinguishable to the caller: 401 either way.
 
