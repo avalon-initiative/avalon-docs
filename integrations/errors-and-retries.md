@@ -18,6 +18,10 @@ Every SDK maps failures into a small, stable set of categories, so a game does n
 
 Each category carries the server's stable machine-readable `code`, which is safe to match on when finer handling is needed. The code is not free text and does not change when wording changes. Language-specific extras exist (for example a distinct conversation-participant error and missing-issuer-credentials error).
 
+## Session calls
+
+Revoking a session that is not the caller's, whether the id is unknown or belongs to another identity, returns 404 with the code `SESSION_NOT_FOUND`. It lands in the not-found category in every SDK, and the code is available as a string to match on. Treat it as already gone: the session either never existed for this identity or has already ended. Listing and logging out have no code of their own. A logout with a token that is already ended or expired is an ordinary unauthorized failure. See [SDK design](../sdk/design.md#the-callers-own-login-sessions).
+
 ## Retries
 
 Automatic retries are implemented in the Rust SDK only. The TypeScript and C# SDKs do not retry: each call is a single attempt, and a caller that wants retries applies its own policy around the call.

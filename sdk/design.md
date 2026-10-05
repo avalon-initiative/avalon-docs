@@ -53,9 +53,30 @@ Capabilities are permanent wire strings, not language enum names. An SDK preserv
 ## Two session types
 
 - **Integrator session** (capability-gated): a game, app, or service authenticating with its own credential, scoped to what an identity granted it.
-- **Account session** (first-party): a client acting as an identity itself, for registration, login, recovery, passkeys, devices, guild administration, friends, conversations, and integrator consent. Not gated by capability grants.
+- **Account session** (first-party): a client acting as an identity itself, for registration, login, recovery, passkeys, devices, its own login sessions, guild administration, friends, conversations, and integrator consent. Not gated by capability grants.
 
 The two share no conversion in either direction in any SDK, and no account-session constructor accepts an integrator credential. An integrator credential can therefore never yield account-level power, by construction. Within an account session most actions rely on the session bearer token; a smaller named set also requires a fresh Ed25519 signature from the identity's own signing key, which the SDK produces automatically. See [identity](../protocol/identity.md) for the two authorization tiers.
+
+### The caller's own login sessions
+
+An account session can list, end, and log out of the identity's login sessions. These calls act on the session record on the node, not on the SDK object alone. Available on the SDK main branch and in the next release.
+
+| Call | Rust | C# | TypeScript | Route |
+| --- | --- | --- | --- | --- |
+| List live sessions | `list_sessions()` | `ListSessionsAsync` | `listSessions()` | `GET /me/sessions` |
+| End one of the identity's sessions | `revoke_session(id)` | `RevokeSessionAsync` | `revokeSession(id)` | `POST /me/sessions/{id}/revoke` |
+| End the session in use | `logout()` | `LogoutAsync` | `logout()` | `POST /sessions/logout` |
+
+- **Listing** returns only live sessions, so an expired session never appears, newest first by creation time. Each summary carries:
+  - `id`: the session's id, which is what revoke takes. It is not the bearer token, which the node stores only as a hash and never returns.
+  - `created_at` and `expires_at`: when the session was minted and when it lapses if never ended. A session lasts 30 days from minting.
+  - `current`: true on the session the listing request itself authenticated with, so a client can tell "this device" from the others.
+  - `origin_passkey_id`: set when the session came from a passkey login, and empty otherwise.
+  - `origin_signing_key_id`: set when the session came from device pairing or a cross-node login, and empty otherwise. It names the signing key that approved the pairing or signed the grant.
+
+  A session is never minted without an origin, and every minting path sets exactly one. Revoking that passkey or signing key ends the session, so the origin ids show which sessions a credential revocation would take down. See [identity authentication](../protocol/identity/authentication.md#sessions). The field names are snake case on the wire and in Rust, `OriginPasskeyId` and `OriginSigningKeyId` in C#, and `originPasskeyId` and `originSigningKeyId` in TypeScript, where a missing origin is `null`.
+- **Revoking** ends one session of the calling identity, and the current one is allowed. A session id that does not belong to the caller, whether unknown or another identity's, is refused with a 404 whose code is `SESSION_NOT_FOUND`. The SDKs pass the code through as a string in their not-found category (see [errors and retries](../integrations/errors-and-retries.md#session-calls)).
+- **Logging out** ends the session this account object authenticates with. The token is unusable afterwards, so every later call on that object fails as unauthorized, and so does a second logout.
 
 Integrators are deliberately unable to create guilds, invite, kick, change roles, or manage channels on a person's behalf. Those are identity-authority actions.
 
