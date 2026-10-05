@@ -19,6 +19,7 @@ This section is for people who want to build on Avalon, run a node, or contribut
 | I want to... | Go to |
 | --- | --- |
 | Run an `avalon-server` node | [Running a node](running-a-node.md) |
+| Start a network of my own | [Running your own network](running-your-own-network.md) |
 | Contribute code or docs | [Contributing](contributing.md) |
 | Improve or add documentation | [Documentation guide](documentation-guide.md) |
 | See which repository owns what | [Ecosystem](../ecosystem/README.md) |

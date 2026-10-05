@@ -16,7 +16,7 @@ Running a node is participation, not a service you depend on someone else for. A
 - **Keys are generated on first start.** The node creates its settlement, submit, witness, and network identity keys in its data directory and reuses them. Keys set explicitly through the environment always win.
 - **Seed nodes.** A fresh node learns a network through the seed nodes listed in that network's trust entry, mirrors the core shard from them, and verifies every head against the pinned key. A seed carries no authority: it can withhold history but cannot inject any.
 - **TLS.** A node reachable beyond loopback must sit behind TLS, typically a reverse proxy.
-- **Reachability.** Participation should not depend on public reachability. See [ADR 0903](../architecture/decisions/0903-node-participation-must-not-depend-on-public-reachability-nat.md) for the decision and the state of the work.
+- **Reachability.** Participation should not depend on public reachability. See [ADR 0903](../architecture/decisions/0903-node-participation-must-not-depend-on-public-reachability-nat.md) for the decision and the state of the work. A node with no open port can join today with limits; see [self-hosting](../architecture/self-hosting.md#operating-an-instance) and the protocol repository's guide, *Running a node with no open port*.
 
 ## Ways to run one
 
@@ -31,6 +31,10 @@ Release binaries have provenance you can verify before running them.
 ## Where the step-by-step guides are
 
 The hosting guides (standalone binary, Docker quickstart, deployment behind TLS, upgrading and rollback, choosing a shard, seed nodes, and release verification) live in the [avalon-protocol repository](https://github.com/avalon-initiative/avalon-protocol#readme). The same guides are embedded in the `avalon` binary: run `avalon guide` to list topics, and `avalon setup` for the guided first run.
+
+## Running a network of your own
+
+A node joins an existing network or starts a new one. Starting a new one, with its own key and trust list, is covered step by step in [running your own network](running-your-own-network.md).
 
 ## Related
 

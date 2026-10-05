@@ -15,10 +15,12 @@ This page lists what must be reconstructable, the rebuild procedure, and the lim
 | integrator and issuer registrations | `game.registered`, `issuer.registered` |
 | issuer key lifecycle and status | `issuer.key_*`, `issuer.suspended`, `.reinstated`, `.revoked` |
 | achievement definitions, issuance, revocation, supersession | `achievement.*`, `attestation.superseded` |
-| guild existence, membership history, roles, integrator associations | `guild.*` |
+| guild membership and roster (the owner's row, joins, leaves, role changes, compensations) | `guild.created`, `guild.member_*`, `guild.membership_reversed`, `guild.role_changed` |
 | integrator event results | `game_event.result_issued` |
 | recognition relationships | `recognition.published` |
 | ownership and provenance (Planned, later phase) | asset events, when they exist |
+
+Not in this promise today: a guild's name and metadata, role definitions, channels, integrator associations and favorites are server-owned tables. Their `guild.*` events are recorded but not replayed, so a database loss destroys them and a rebuild restores only the roster. Recovering them is an open gap ([avalon-protocol#1250](https://github.com/avalon-initiative/avalon-protocol/issues/1250)); where each piece of social state lives is in [query and indexing](query-and-indexing.md#where-social-state-lives-today).
 
 | Not promised, need not rebuild | Where it lives |
 | --- | --- |
@@ -45,7 +47,9 @@ Step 3 is why indexer `apply` must be idempotent ([query and indexing](query-and
 
 ## Scenario J: PostgreSQL disappears
 
-Can durable projections be reconstructed? Yes. The rebuild command truncates every projection table and replays the entire ledger back through the indexer in one transaction, so a failure partway leaves the pre-rebuild database untouched rather than half rebuilt.
+Can durable projections be reconstructed? Yes, for the projection tables; guild metadata, roles, channels, associations and favorites are server-owned rows and are not restored (see above). The rebuild command truncates every projection table and replays the entire ledger back through the indexer in one transaction, so a failure partway leaves the pre-rebuild database untouched rather than half rebuilt.
+
+The rebuild replays the ledger through the same projection-time verification a mirroring node applies, as the node's own shard. Before it truncates anything, the command checks that every `identity.created` in the ledger verifies for that shard (`AVALON_OWN_SHARD_ID`, `core` when unset) and exits without changing anything if some do not; when it finishes it reports how many events were refused as well as applied ([identity](../protocol/identity.md#projection-time-verification)).
 
 A live test drives real registration, profile-update, friend, and guild actions through the actual HTTP ceremony, rebuilds, and diffs. Profiles are compared byte for byte against their pre-rebuild state; friendship and guild-member projections are asserted to match what the actions should produce; and replaying the same history twice produces an identical snapshot. A guild's owner is folded into the members projection on `guild.created` so there is no gap between an owner and other members. A second, end-to-end test drives the identity, friends, guild, channel, and achievement slice through real HTTP and SDK calls, runs the rebuild command, and re-asserts the reads a Hub page would make, proving the guarantee holds for what a real client depends on.
 

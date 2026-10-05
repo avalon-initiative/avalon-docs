@@ -81,7 +81,7 @@ Status of this half: real for the guild-channel and conversation case, and still
 
 ## Overlay next-hop selection
 
-Given a target node, a node forwards to the active neighbor that makes strict XOR-distance progress toward it, using the same key space the DHT uses. The rule, its failure reasons, and key derivation are in [topology and tracing](nodes/topology-and-tracing.md#overlay-next-hop-selection).
+Given a target node, a node forwards to its closest unvisited active neighbor by XOR distance, using the same key space the DHT uses, and falls through to the next candidate when a forward fails, so a node with few neighbors still reaches the target. The rule, its failure reasons, and key derivation are in [topology and tracing](nodes/topology-and-tracing.md#overlay-next-hop-selection).
 
 ## Connectivity
 

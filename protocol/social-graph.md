@@ -9,12 +9,12 @@ An identity's friends are a network-level relationship that persists across inte
 | Thing | Persists across integrators? | Where it lives |
 | --- | --- | --- |
 | Friendship (identity A and identity B) | Yes | a durable network relationship, owned by the network and not by either identity's current integrator |
-| Friend requests (pending state) | Until resolved | server state, not durable history |
+| Friend requests (pending state) | Until resolved | server state for the pending record; sending a request also commits a `friend.requested` event to the public ledger |
 | Presence of a friend | Ephemeral | see [presence](./presence.md) |
 | Blocks and mutes | Yes | server state, never durable history (below) |
 | An integrator's in-world social features (party, LFG) | No | integrator-side |
 
-A friendship is symmetric: `Friendship { a, b, since }`. It references two [identities](./identity.md), never two game characters. An identity sees the same friends list from the Hub, from Integrator A, and from Integrator B, filtered by what each viewer is allowed to see. A friendship is promised-durable history (`friend.requested`, `friend.accepted`, `friend.removed`, see the [event catalogue](./protocol-events-catalogue.md)), since it is a social fact between two identities that no integrator owns. A declined or withdrawn request is not durable; only an established or ended friendship is.
+A friendship is symmetric: `Friendship { a, b, since }`. It references two [identities](./identity.md), never two game characters. An identity sees the same friends list from the Hub, from Integrator A, and from Integrator B, filtered by what each viewer is allowed to see. A friendship is promised-durable history (`friend.requested`, `friend.accepted`, `friend.removed`, see the [event catalogue](./protocol-events-catalogue.md)), since it is a social fact between two identities that no integrator owns. A declined or withdrawn request is not durable; only an established or ended friendship is. In the code, the friendship projection is built from `friend.accepted`, `friend.removed` and the recovery reversal; `friend.requested` is recorded on the ledger, but a pending request's state is server-owned and a rebuild does not restore it.
 
 ## What an integrator sees
 
@@ -40,7 +40,7 @@ The same never-reveal rule extends to direct and small-group conversations: a se
 
 ## Handles and discovery
 
-`display_name` is the handle: globally unique and case-insensitive, with no discriminator suffix. Uniqueness is enforced at the write itself by an index, so a concurrent writer cannot race past a prior check, and a taken name is a hard rejection. This follows the current Discord scheme of a globally unique handle rather than the deprecated `name#1234` scheme, whose small numeric space became crowded at scale. `GET /friends/handle/{handle}` resolves an exact handle to an identity id.
+`display_name` is the handle: globally unique and case-insensitive, with no discriminator suffix. Uniqueness is enforced at the write itself by an index, so a concurrent writer cannot race past a prior check, and a taken name is a hard rejection at registration. A node projecting another shard's creation stores a later claimant of a taken name as `name~<id prefix>`, so cross-node names are best effort and the id is the identity ([identity](./identity.md#names-across-nodes)). This follows the current Discord scheme of a globally unique handle rather than the deprecated `name#1234` scheme, whose small numeric space became crowded at scale. `GET /friends/handle/{handle}` resolves an exact handle to an identity id.
 
 Discovery is two-tier and private by default:
 

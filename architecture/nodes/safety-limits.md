@@ -15,6 +15,22 @@ Peer URLs arrive through gossip, so they are attacker-influenced. Before a node 
 - IPv4-mapped IPv6 addresses are judged as the IPv4 address they carry.
 - The check covers every address a host resolves to, and the request is then pinned to a checked address, so a different DNS answer at connect time cannot change the destination.
 - Outbound clients follow no redirects, use no proxy, and carry a timeout.
+- The node-to-node fetches in the peer, gossip, shard, mirroring, replication, chat replication, mirror push, and head-conflict confirmation code go through a guarded client. It checks every address a hostname resolves to when it connects, and follows `AVALON_ALLOW_PRIVATE_PEERS` (default false): private and loopback targets are refused unless it is true. A refusal that only that setting would lift is logged as a warning, at most once per target every five minutes. A test fails if one of those modules builds any other kind of client. A new announcer's reachability check uses a client pinned to the address that was checked.
+
+## Hostname lookups
+
+A hostname lookup is the one outbound step that cannot be cancelled once started, so lookups are bounded separately from the requests they serve.
+
+- Two pools of lookup slots: a small one (8) for names an unauthenticated caller can supply (announces, gossip, probes) and a larger one (32) for the node's own fetches to peers it already chose, so abandoned lookups of caller-supplied names cannot starve the node's own.
+- One lookup runs per host at a time; later callers wait on its answer.
+- A host that failed to resolve is refused without a new lookup for 45 seconds.
+- A lookup that has not answered after 3 seconds frees its slot and counts as a failure. The blocked call itself keeps running, so it is counted until it returns, and while 32 or more such timed-out lookups are still running, new untrusted lookups are refused outright and not cached as failures.
+- An IP literal needs no lookup and takes no slot; it is checked directly against the address policy.
+- Admission checks are limited per source address (`AVALON_ANNOUNCE_NEW_PEERS_PER_SOURCE_PER_MINUTE`, default 10) and by an in-flight limit (`AVALON_ANNOUNCE_MAX_CONCURRENT_CHECKS`) that is never above the untrusted pool, and both apply before any lookup. One gossip exchange spends at most 10 seconds resolving unseen shard URLs, and stops after 8 failed lookups.
+
+## Head-conflict confirmation
+
+When gossip shows two different roots for the same shard and tree size, the node fetches the full cosignature detail from the reporting peers to confirm it. That work is capped: at most 4 confirmations run at once, one per shard and tree size, and one reporter holds at most one slot. One of the slots is reserved for a reporter that is a bound peer this node has itself completed at least 5 announce round trips with; a handshake, admission, or shard gossip does not count, because a fresh libp2p id costs nothing. A dropped conflict resurfaces on the next gossip round.
 
 ## Peer table bounds
 
@@ -30,6 +46,43 @@ Admission is capped and validated, with explicit rejection codes: an invalid, to
 - **Body size limits**: a general limit, and a smaller one for node-coordination routes, which carry small fixed-shape JSON.
 - Over-limit responses are always `429` with `Retry-After`, from either layer.
 - Limits are per process by default. An operator can opt into a shared limiter across that one operator's own processes, scoped strictly to one hoster and failing open if the shared store is unreachable. A network-wide shared limiter is deliberately not offered, since it would recreate the single point of control that sharded settlement removes.
+
+## Relays and hole punching
+
+Relays and hole punching let a node with no open port take part, and they add an abuse surface. This is the threat model and what each control does. The mechanics are on the [connectivity](connectivity.md) page.
+
+| Threat | Control |
+| --- | --- |
+| A relay is used for free bandwidth | Every relay resource has a finite, configurable bound with a safe default: reservations and circuits in total and per peer, reservation and circuit lifetimes, and bytes per circuit. A circuit is cut at its lifetime or byte cap. The per-peer limits are exact: a peer holds at most the configured number of reservations and circuits and the next is refused. Relaying is off unless the operator turns it on. |
+| Reservations or circuits are exhausted to lock others out | The per-peer and total limits above, plus libp2p's per-peer and per-IP request limiters. A refused request costs the relay one reply. A relay reports limits and usage in `GET /nodes/status` (`relay_server`), so an operator can see pressure and the denial counts; bytes carried are bounded per circuit but not measured. |
+| Dial-back or hole punching is used to make a node attack a third party | A node dials back only the IP it observed on the requesting connection, refuses private and loopback addresses unless allowed for development, and answers a bounded number of dial-backs per minute. Every libp2p address that enters the peer table is validated under the outbound address policy before it is stored or dialed. |
+| A relay reads or alters traffic, or pretends to be a peer | Both ends run their own noise handshake over the circuit, so the relay carries bytes it cannot read, and a peer id is authenticated end to end: a relay that terminates the circuit itself cannot complete the handshake as the peer. A forged address that names another peer id is dropped at admission. |
+| A node picks a hostile or unstable relay, or ends up with every reservation on one network | Selection skips relays in backoff and prefers operator-listed relays, then a relay outside every network already held (IPv4 /24, IPv6 /48 or DNS host). Failures back a relay off for 30 seconds, doubling to 15 minutes, and only a renewal clears it. A held reservation is replaced only after a hold time, at most once per interval, and only by a clearly better relay, so a node does not move between relays on noise ([re-selection](connectivity.md#relay-re-selection)). A relay's reported capacity is only a tie-break. Sybil relays across different networks, NAT64, and self-reported addresses are not defended against ([relay selection](connectivity.md#relay-selection)). |
+| A peer table fills with unverifiable relayed entries | A gossiped peer with no reachable URL waits in the small unverified pool. It is promoted only when an outbound libp2p connection authenticates its peer id. Pool size, dials per scan, and table size are all bounded. |
+| A relay drops out of service on one failed probe, or repeated probes exhaust the connection limit | A serving relay keeps serving through a `private` verdict for a bounded grace (`AVALON_RELAY_SERVER_PRIVATE_GRACE_SECS`, default 90), an answered AutoNAT dial-back releases its extra connection, and a failed relayed dial is retried with bounded backoff ([keeping a relay serving](connectivity.md#keeping-a-relay-serving)). |
+| A relay operator learns who talks to whom | It does, and this is stated rather than hidden. |
+
+The abuse surface is exercised by tests that run hostile peers against real in-process swarms over loopback, with no database. They cover a circuit to a peer with no reservation, a circuit that ends at a different peer than the one dialed, the identity of the peer behind a circuit coming from its own handshake, a hostile announce whose addresses do not end at the announced peer, a flood of free keypairs against a relay with small limits (the honest peer stays served and active counts never pass the limits), one keypair against the exact per-peer reservation and circuit limits, a flood of fake relay candidates (bounded, with operator-listed relays surviving), malformed, truncated, and oversized frames on the relay hop and stop protocols, hostile hole-punch answers and streams (recorded as a failed punch, with the node still reachable through the relay), and garbage, oversized, and flooded requests on the node-to-node stream protocol (refused without running a handler, with an honest peer still served).
+
+What a relay operator can observe: the address and peer id of each node that reserves a slot or opens a circuit, the peer id at the other end, when circuits start and stop, and how much moves through them. It cannot read or change the content, and it holds no state or authority: a relay is transport, never a source of truth. Relay use is logged with reasons for denials.
+
+What hole punching exposes: the two nodes learn each other's public IP address to open the direct connection. The relay already knew both. A node that does not want its address shown to a peer can turn hole punching off (`AVALON_DCUTR_ENABLED=false`) and stay on the relay.
+
+One detection limit is stated here because it affects what a node believes about itself: AutoNAT v1 is a self-measurement, and a restricted-cone NAT is a case it handles by outcome rather than by design: in the lab such a node is observed to be reported `private` and `relayed`, because direct dials leave from a fresh port and open no mapping on the listen port ([connectivity](connectivity.md#detection)). Reported reachability stays a hint, not a guarantee for every NAT type.
+
+## Node-to-node streams
+
+Node-to-node requests carried over libp2p streams ([connectivity](connectivity.md#node-to-node-requests-over-libp2p-streams)) are bounded like any other unauthenticated input. Request and response bodies, request time, requests in flight in total and per peer, buffered request bytes, header count and size, path length, and the swarm's connection counts all have finite defaults and ceilings; an over-limit request is answered 429 before its body is read. Only a fixed allowlist of node-to-node routes is served, and admin, internal, and user-facing routes are refused. Failover between HTTP and streams ([transport failover](connectivity.md#transport-failover)) is bounded the same way: the per-peer outcome record holds at most 4096 peers, a demotion lasts 10 to 300 seconds, a dial waits at most `AVALON_NODE_HTTP_CONNECT_TIMEOUT_SECS` (default 15, at most 60) with at most 32 requests waiting per peer, and a request whose caller gave up is not delivered later. A stream request that falls back to a peer's URL is made only for reads, only to the one bound entry holding the id, only after the URL passes the outbound address policy, through the address-pinned client with no redirects and no proxy, and with only `Content-Type`, `Accept`, and the trace header forwarded and no body. Writes are never replayed after a timeout, and an application answer is never retried elsewhere. Peers whose libp2p id is not bound to a peer table entry share one synthetic client address, so inventing peer ids does not multiply per-IP budgets. The three node-to-node write routes need a credential and standing, and each checks what the caller may do ([node-to-node write routes](#node-to-node-write-routes)). Standing narrows who can reach them and is not an authorization check ([identity binding](discovery-and-peering.md#identity-binding-is-not-a-security-boundary)). A `p2p://` entry, being free to create, is capped in the table, the unverified pool, and the shard registry, and is evicted before HTTP entries ([nodes with no public URL](connectivity.md#nodes-with-no-public-url)).
+
+## Node-to-node write routes
+
+`POST /nodes/relay`, `POST /nodes/replicate-chat`, and `POST /mirror/notify` accept data from other nodes, so they are bounded before and after the caller is known. The full rules are on [node-to-node write routes](write-route-credentials.md); in summary:
+
+- The caller is a node identity key: the noise-authenticated peer id over a stream, a signed `x-avalon-node-auth` header over HTTP. There is no unsigned fallback.
+- Over HTTP the signature is checked, from the headers alone, before the body is read. The timestamp window is 60 seconds and a nonce is single use.
+- A body read is bounded by a per-route cap (64 KiB, 64 KiB, 1 KiB), a total and an idle timeout, a per-signer in-flight limit, a per-signer request budget, a global limit on concurrent reads, and a failure budget per signer and per source address. Tuning variables are `AVALON_NODE_AUTH_*`.
+- The caller needs standing, a bound main-table entry. Standing is cheap to get, so each route then checks its own scope: a local subscriber for relayed chat, a storage role and a per-signer rate for replication, a configured mirror source and a larger tree size for notification.
+- Refusals are 401 (credential), 403 (no standing or out of scope), 408 (body timeout), 413 (body cap), 422 (message limits), 429 (budgets), and 503 (replay cache full or reads saturated).
 
 ## Host resource metrics
 

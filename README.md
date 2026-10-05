@@ -58,6 +58,7 @@ The protocol defines the contracts. The SDKs are generated from and checked agai
 | See how the pieces fit together | [Ecosystem](ecosystem/README.md) and [Architecture](architecture/README.md) |
 | Learn how the protocol works | [Protocol](protocol/README.md) |
 | Build a game, app, or service on Avalon | [Integrations](integrations/README.md), then [SDKs](sdk/README.md) |
+| Find my setup guide (user, integrator, hoster, own network) | [Start here](getting-started/start-here.md) |
 | Run a node | [Running a node](developers/running-a-node.md) |
 | Contribute | [Developers](developers/README.md) |
 | Understand why something is designed this way | [Architectural decisions](architecture/decisions/README.md) |

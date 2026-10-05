@@ -49,12 +49,16 @@ Avalon reuses ordinary words (identity, event, node, chain) for specific, narrow
 | Mirror | A node that syncs and re-serves the same `network_id`'s public log. Participation in the network, not a fork. | A private instance under a different `network_id`. | [Nodes](../architecture/nodes/README.md), [Self-hosting](../architecture/self-hosting.md) |
 | Self-hosting | Running the Avalon code. Mirroring and running a shard keep the shared `network_id`; running under your own `network_id` is a private instance and a fork. | Mirroring. | [Self-hosting](../architecture/self-hosting.md) |
 | Connectivity | How peers can reach a node (direct, NAT-traversed, relayed, outbound-only). A transport property that never affects authority. | A measure of trust or standing. | [Connectivity](../architecture/nodes/connectivity.md) |
+| Stream transport | Carrying a node-to-node HTTP request over a libp2p stream to a `p2p://<peer id>` base URL, so relays and hole punching apply and a peer with no usable URL is reachable. | A way for clients or SDKs to reach a node, or a separate API. | [Connectivity](../architecture/nodes/connectivity.md#node-to-node-requests-over-libp2p-streams) |
+| Relay selection | How a node with no reachable address picks which relays to hold reservations with: skip relays in backoff, operator-listed before discovered, a relay outside every network already held, then round trip and outcome history. | Probing relays, or a guarantee of the best relay. | [Relay selection](../architecture/nodes/connectivity.md#relay-selection) |
+| Transport failover | Retrying a node-to-node request over the other transport (HTTP or libp2p stream) after a failure to connect, with a per-peer record that demotes a failing transport. | Retrying after an application answer, or replaying a write after a timeout. | [Transport failover](../architecture/nodes/connectivity.md#transport-failover) |
 
 ## Identity mechanics
 
 | Term | Means | Does not mean | See also |
 | --- | --- | --- | --- |
 | Passkey | A WebAuthn credential used to log in. An identity can have several. | The signing key. | [Identity](../protocol/identity.md) |
+| Identity id | The 64-character lowercase hex SHA-256 of the domain tag `avalon-identity-id-v1` and the identity's first Ed25519 public key. It never changes when keys are added, rotated, or recovered. | A UUID, a display name, or the `node:` id of a shard. | [Identity](../protocol/identity.md#the-identity-id) |
 | Ed25519 signing key | The separate key, not the login passkey, that signs events an identity authors. | The login credential. | [Identity](../protocol/identity.md) |
 | Social recovery | Recovering an identity when passkeys are lost, through approval by M of N designated guardians. | A centrally held backdoor. | [Identity](../protocol/identity.md) |
 | Cross-device pairing | Adding a device or passkey to an existing identity. | Creating a second identity. | [Identity](../protocol/identity.md) |

@@ -47,7 +47,7 @@ Nothing above is integrator-scoped. The per-integrator counts are realtime [pres
 | Guild metadata (message of the day, banner, icon, links, recruiting) | Network | editable by the owner or a holder of `manage_guild` |
 | Membership | Network | joins, leaves, and removals are protocol events |
 | Roles and permissions | Network | assigned by members with authority |
-| Guild history | Network | append-only, reconstructable |
+| Guild history | Network | append-only; membership and roster events are rebuilt from the ledger (see below) |
 | Guild chat channels and messages | Network | delivered to any authorized client |
 | Reputation, governance | Network | later; see [future layers](../architecture/future-layers.md) |
 | An integrator's in-world rendering of a guild | Integrator | banners, halls, roster UI |
@@ -81,7 +81,7 @@ guild.member_removed    Identity Y (left)
 Current projection:  Dragon Hunters, Members: Identity X (Leader)
 ```
 
-The history is reconstructable from [protocol events](./protocol-events.md); the roster is rebuilt from it by the [indexer](../architecture/query-and-indexing.md). Nothing Avalon promises to preserve about a guild lives only in a mutable row. **Gap:** the events are durable, but no `GET /guilds/{id}/history` endpoint or indexer read model exposes them to clients yet, so the Hub's history card says so plainly instead of fabricating a feed from the current roster.
+The history is reconstructable from [protocol events](./protocol-events.md); the roster is rebuilt from it by the [indexer](../architecture/query-and-indexing.md). These events are public ledger entries naming the member, whatever the guild's `roster_visibility` says: that setting gates the node API's roster read only (see [privacy](./privacy.md#what-the-ledger-makes-public)). That holds for membership and the roster. A guild's name and metadata, role definitions, channels, integrator associations and favorites are server-owned rows: their events are recorded for audit and mirroring but are not replayed, so a rebuild does not restore them and mirror nodes do not hold them ([query and indexing](../architecture/query-and-indexing.md#where-social-state-lives-today); open gap [avalon-protocol#1250](https://github.com/avalon-initiative/avalon-protocol/issues/1250)). **Gap:** the events are durable, but no `GET /guilds/{id}/history` endpoint or indexer read model exposes them to clients yet, so the Hub's history card says so plainly instead of fabricating a feed from the current roster.
 
 ## A user's main guild
 

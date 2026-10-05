@@ -11,7 +11,7 @@ This page describes shard identity, write routing, the cross-shard root, and how
 A shard is a `PostgresSettlementProvider`-style log: its own hash chain, Merkle tree, and signed tree heads, signed by that shard's own settlement key. Sharding adds a layer on top and does not change how any shard works internally, so existing single-shard proofs work unchanged.
 
 - **Shard ids** look like `{namespace}:{owner}[/{instance}]`: `game:wow`, `app:...`, `service:...`, or a sibling like `game:wow/2`. Key and authority resolution use the owner only, so siblings are authorized by the same integrator's `shard_settlement` keys while remaining separate ledgers with separate heads. Nothing merges sibling ledgers.
-- **`core` is the reserved shard** of the network's pinned core authority, the one node whose settlement key is pinned for the network. Identity, social, and guild events have no single owning integrator, so they route to `core`. The core authority is also the trust root registrar: an integrator and its shard key become known to the network through events recorded in its ledger.
+- **`core` is the reserved shard** of the network's pinned core authority, the one node whose settlement key is pinned for the network. Identity, social, and guild events have no single owning integrator, so the outbox labels them `core`. That label selects a remote authority only when the node has a `core` target configured; otherwise the node commits them to its own ledger, whichever shard that is (see below). The core authority is also the trust root registrar: an integrator and its shard key become known to the network through events recorded in its ledger.
 - **Self-certifying shards.** A shard id of the form `node:<hash of public key>` proves itself: other nodes verify it with only the public key its tree-head response carries, so joining needs no registration ([witness cosigning](../../protocol/witness-cosigning.md)).
 - **A node's ledger is its shard.** Whatever a node commits locally is the history of the shard it authors. A node that claims `core` while holding a different key would be indistinguishable from an impostor to a client pinned to the network key, so the server refuses to start in that situation (with a tolerance only for a lone local development node).
 
@@ -24,11 +24,11 @@ An event's issuer id carries a namespace, and the namespace decides the shard.
 | Namespace | Shard |
 | --- | --- |
 | `game`, `app`, `service` (an integrator acting as itself: attestations, revocations, integrator-owned schema events) | that integrator's own shard, `{namespace}:{owner}` |
-| `identity` (identity, social, guild events) | the reserved `core` shard |
+| `identity` (identity, social, guild events) | labeled `core`: submitted to the `core` authority when this node has a remote `core` target configured, and otherwise committed to this node's own ledger, so the shard it authors (`core` on the core authority, a named shard, or a `node:` shard) |
 
 The outbox worker groups pending rows by shard and commits one batch per shard per tick, never mixing two shards in one batch. A shard is committed locally if this node holds that shard's signing key, and otherwise submitted to the shard's configured remote authority. A deployment with no remote authority configured has exactly one shard and behaves as a single-operator log. Routing picks which shard's authority to use; it never introduces a second writer for the same shard, so there is still nothing to referee.
 
-Identity and social actions are not shard-locked: which shard an event commits into depends on the node handling the request, never on where the identity was created ([nodes](../nodes/README.md#identity-and-social-actions-are-not-shard-locked)).
+Which shard an identity or social event commits into depends on the node handling the request, never on where the identity was created. A default fresh node authors a self-certifying `node:` shard, so the identity events of accounts registered through it are in that shard, which other nodes never project; see [identity and social actions and shards](../nodes/README.md#identity-and-social-actions-and-shards).
 
 ## The cross-shard root
 
@@ -42,6 +42,20 @@ The cross-shard root must be independently computable by any node from public in
 - **Missing or stale shards.** A node tracks shards it knows exist and shards it holds a verified head for. If the second is a strict subset of the first, the root is marked `partial: true` and lists the missing ids. A partial root is not authoritative for the missing shards.
 
 No consensus or cross-shard ordering is involved. A network with exactly one shard degenerates to a one-leaf root; the single-operator case is the one-shard special case, not a separate code path.
+
+## The shard family head
+
+An owner that runs several sibling shards (`game:<slug>` and `game:<slug>/<instance>`) can be verified as one family. Membership comes only from the shard id: instances of one owner form a family, and `core` and `node:<hash>` shards belong to none. The owner part alone decides which registered keys verify a head, so each member head is still verified exactly as in the cross-shard root.
+
+- **A separate structure.** The family head is not the cross-shard root scoped to one owner. Its leaves use their own domain tag and bind the owner, so a family root never equals a network root over the same heads. Each leaf is `SHA-256(family tag || owner || shard_id || tree_size || root_hash || signing_key_id || signature)` with length-prefixed fields; an empty family has a fixed root derived from the owner.
+- **Ordering and hashing** are the cross-shard root's: byte-wise ascending by `shard_id`, RFC 6962 tree hash, the same inclusion proof code.
+- **Unsigned and recomputable.** A node publishes the root with the member heads it used, and anyone can recompute it from public heads.
+- **Completeness is advisory.** Nothing declares which siblings exist, so the head covers the siblings a node knows about and has verified. A known sibling without a verified head makes the result `partial: true` and is listed in `missing_shard_ids`; a sibling the node has never heard of is invisible. A declared membership, such as an owner-signed record of its instances, would make completeness verifiable and is a separate decision.
+- **Endpoint.** `GET /ledger/shard-family?owner=<namespace>:<slug>` is public and unauthenticated, like the cross-shard root, and returns the root, the member heads in canonical order and the partial information. `?member=<shard_id>` adds that member's inclusion proof. A malformed owner (including one with an instance, `core`, or a `node:` id) is a 400, a member without a verified head is a 404, and a family of more than 256 members is refused rather than truncated, because a truncated root could not be recomputed by others.
+
+Atomic writes across siblings are out of scope; each sibling stays a single-signer log.
+
+An owner's sibling shards can be listed with `GET /integrations/{slug}/shards`. The endpoint is public and read-only, and the list is advisory: it contains only the owner's shards that the answering node knows of and whose current head verified under the owner's registered keys. A sibling the node has not learned about is not listed. A known sibling whose head could not be verified is reported in `missing_shard_ids`, with `partial` set. Each entry carries the shard id, its head (`tree_size`, `root_hash`, `signing_key_id`, `created_at`) and when the node last saw it announced. The endpoint answers 404 for an integrator the node has no registration for, and 413 when the owner has more than 256 shards; the list is never truncated. A declared, owner-signed membership would make completeness verifiable and remains a separate, larger contract change.
 
 ## Automatic shard discovery
 
