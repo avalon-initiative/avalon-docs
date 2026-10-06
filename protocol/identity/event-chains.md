@@ -10,7 +10,7 @@ Two nodes can each accept a layer-1 edit (say, a profile change through one node
 
 ## The chain
 
-Every layer-1 event belongs to its own identity's chain: a per-identity sequence number (monotonic within that identity and unrelated to the global ledger sequence) plus a hash pointer to the previous event in that chain. In the ledger the position is stored inside the entry's payload under the reserved key `_identity_chain` (`{seq, prev_hash}`), so it is covered by the entry hash and reaches every mirror without a wire-format change. Kinds that do not participate (achievement issuance, integrator registration, `identity.created` itself, and the first passkey and inception signing-key events written at registration) carry no position. The chain does not verify who authored an event; an identity's key chain (the inception key derives the id, and each later key is signed in by an active key) is described in [the identity id](../identity.md#the-identity-id).
+Every layer-1 event belongs to its own identity's chain: a per-identity sequence number (monotonic within that identity and unrelated to the global ledger sequence) plus a hash pointer to the previous event in that chain. In the ledger the position is stored inside the entry's payload under the reserved key `_identity_chain` (`{seq, prev_hash}`), so it is covered by the entry hash (through the payload hash the entry commits to) and reaches every mirror without a wire-format change. Kinds that do not participate (achievement issuance, integrator registration, `identity.created` itself, and the first passkey and inception signing-key events written at registration) carry no position. The chain hash alone does not verify who authored an event, but for the signed key events the author's signature now covers the position as well: a device-grant approval and a signing-key revocation sign the `seq` and `prev_hash` they extend (see [authentication](./authentication.md#cross-device-pairing-for-clients-without-webauthn)). An identity's key chain (the inception key derives the id, and each later key is signed in by an active key) is described in [the identity id](../identity.md#the-identity-id).
 
 ## The deterministic rule
 
@@ -34,7 +34,7 @@ Most layer-1 events (profile edits, friend actions, guild membership changes) ar
 
 - Convergence for the friendship, guild-roster, passkey, and signing-key projections. Their events are recorded so forks are detected, but a concurrent same-position conflict in those projections is not undone.
 - Chain positions for rollback compensations and for events authored on behalf of another shard.
-- SDK support. The shared conformance vectors for this rule (`identity-chain.json`) exist only in the protocol repository and have no vendored copy or implementation in the SDKs yet.
+- SDK support for the resolution rule. The shared vector for it (`identity-chain.json`) is vendored in `avalon-sdks` but only the protocol runner exercises it; no SDK implements chain resolution. The SDKs do sign the chain position into the key events above and re-sign on a stale position.
 
 ## Implementation
 
