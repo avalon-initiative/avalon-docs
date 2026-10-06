@@ -64,6 +64,7 @@ Two rules run through every page. An identity and its social data belong to the 
 | Page | Status | One line |
 | --- | --- | --- |
 | [Protocol events](./protocol-events.md) | Implemented | The event envelope, pipeline, and versioning policy |
+| [Ledger entry envelope](./ledger-entry-envelope.md) | Partially implemented | The hashed entry layout byte by byte, stored form, and the proposed full envelope |
 | [Event catalogue](./protocol-events-catalogue.md) | Reference | Every event kind, payload, and attribution |
 | [Worked ledger example](./worked-ledger-example.md) | Reference | One user's ledger as real ordered events, and what never appears on it |
 | [Network trust anchors](./network-trust-anchors.md) | Implemented | Pinning a network id to the operator's real key |

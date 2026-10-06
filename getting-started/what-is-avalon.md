@@ -27,6 +27,19 @@ Three layers:
 - **Network.** Running nodes (`avalon-server`, backed by Postgres) that speak the protocol over HTTP and WebSocket and gossip with each other. See [architecture overview](../architecture/overview.md).
 - **Integrators.** Sovereign games, apps, and services that opt into whichever parts they want, usually through an [SDK](../sdk/README.md).
 
+```mermaid
+flowchart LR
+    P([A person: one keypair]) --> N1[Node A]
+    P --> N2[Node B]
+    N1 <-->|signed ledger, mirrors, witnesses| N2
+    N2 <--> N3[Node C, behind a home router]
+    G1[Game] --> SDK[SDKs: Rust, C#, TypeScript]
+    G2[Web app] --> SDK
+    Hub[Hub app] --> SDK
+    SDK --> N1
+    SDK --> N2
+```
+
 ## What Avalon is not
 
 - **Not a blockchain or token.** Settlement is a public, signed, append-only transparency log. There is no validator consensus and no native currency at launch. See [ADR 0186](../architecture/decisions/0186-no-blockchain-validator-consensus-transparency-log-only.md) and [ADR 0070](../architecture/decisions/0070-settlement-is-a-public-transparency-log.md).

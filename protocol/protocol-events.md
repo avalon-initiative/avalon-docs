@@ -115,7 +115,7 @@ Status: implemented. The kind catalogue, typed payloads, and versioning policy a
 
 ## Related
 
-- [Event catalogue](./protocol-events-catalogue.md), [worked ledger example](./worked-ledger-example.md)
+- [Ledger entry envelope](./ledger-entry-envelope.md), [event catalogue](./protocol-events-catalogue.md), [worked ledger example](./worked-ledger-example.md)
 - [Per-identity event chains](./identity/event-chains.md), [revocation](./revocation.md), [provenance](./provenance.md)
 - [Settlement](../architecture/settlement.md), [query and indexing](../architecture/query-and-indexing.md), [disaster recovery](../architecture/disaster-recovery.md)
 - [ADR 0075](../architecture/decisions/0075-durable-protocol-history-is-canonical-query-databases-are-projections.md)
