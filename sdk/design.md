@@ -106,7 +106,7 @@ The Rust SDK has no dependency on any protocol-repository crate, so it is struct
 
 ## Cross-SDK conformance
 
-Shared vectors under `conformance/vectors/` hold canonical inputs and outputs, one JSON file per behavior. Each names the SDKs that implement it (`supportedIn`) and, for the rest, why not (`notSupported`). The server asserts its implementation against the same files, and each SDK has a thin runner. Covered behaviors:
+Shared vectors under `conformance/vectors/` hold canonical inputs and outputs, one JSON file per behavior. Each names the SDKs that implement it (`supportedIn`) and, for the rest, why not (`notSupported`). The server asserts its implementation against the same files, and each SDK has a thin runner. The SDK copies are not edited by hand: `scripts/sync-protocol.sh update` copies the vectors and the OpenAPI document byte for byte from protocol `main`, and a CI check (`sync-protocol.sh check`) fails when they differ. Covered behaviors:
 
 | Vector | Rust | C# | TypeScript |
 | --- | --- | --- | --- |
@@ -116,11 +116,17 @@ Shared vectors under `conformance/vectors/` hold canonical inputs and outputs, o
 | Self-certifying tree head | yes | yes | yes |
 | Witness announce and witness-cosigned tree head | yes | yes | yes |
 | Known-list selection | yes | yes | yes |
+| Structured signing bytes and the domain-tag registry | yes | yes | yes |
+| Canonical payload encoding | yes | yes | yes |
+| Ledger entry hash | yes | yes | yes |
+| Identity id, `identity.created`, device-grant approval, and signing-key revocation signing bytes | yes | yes | yes |
 | Session-continuation token | no | no | yes |
 | WebSocket interest-claim handshake | no | no | yes |
 | BIP39 mnemonic-derived signing keys | no | no | yes |
+| Identity chain resolution (`identity-chain.json`) | no | no | no |
+| Node-request credential (`node-request.json`) | no | no | no |
 
-Runners that lack a behavior assert the gap explicitly with a named skip citing the vector's `notSupported` entry rather than faking an implementation. The convention: add a vector in the same change that lands any new smart-client behavior in any SDK. The vector schema is documented with the vectors. See [protocol API](../protocol/api.md).
+The protocol runner is the only one for the last two rows: no SDK client calls those paths. Not covered by any vector or SDK yet (Planned): actor-signed social events, the cross-node login grant v2, and new-device key acquisition. Runners that lack a behavior assert the gap explicitly with a named skip citing the vector's `notSupported` entry rather than faking an implementation. The convention: add a vector in the same change that lands any new smart-client behavior in any SDK. The vector schema is documented with the vectors. See [protocol API](../protocol/api.md).
 
 ## Self-certifying shard heads
 
