@@ -27,6 +27,29 @@ A version claim is never trusted for anything cryptographic or used to grant ele
 - A minimum-supported-peer-version floor is baked into the binary. A peer below it is excluded from the peer table and gossip. An environment setting can only raise the floor, never lower it. Exclusion is reversible: a peer that upgrades is re-admitted on its next announce.
 - `GET /nodes/status` reports the node's protocol version, its roles, and, when known through gossip, a `stale` flag. The flag is a self-diagnostic hint only; nothing reads it to change behavior.
 
+## Rolling out an envelope change
+
+**Proposed.** How a change to the [ledger entry envelope](../../protocol/ledger-entry-envelope.md) would reach the network. Nodes first understand the new layout while still authoring the old one; SDKs that author it are held until enough public nodes can accept it.
+
+```mermaid
+sequenceDiagram
+    participant D as Maintainers
+    participant N as Nodes (hosters)
+    participant S as SDKs
+    participant I as Integrators
+    D->>N: 1. Release that UNDERSTANDS envelope n+1 (still authors n)
+    N-->>N: advertise rules_supported includes n+1
+    N->>N: log "[UPGRADE AVAILABLE] Your version: a - new version: b"
+    Note over D,S: 2. Hold SDKs that AUTHOR n+1
+    S-->>S: read-only support for n+1 can ship any time
+    N-->>D: majority of public nodes advertise n+1
+    D->>S: 3. Release SDKs that author n+1 (runtime check: node range covers it)
+    S->>I: integrators can use the new envelope
+    Note over N,I: 4. Require (only if n must stop): readiness bar + 30-day gap
+```
+
+Held SDK releases are the second safety belt. The primary gate is the runtime check against the connected node's advertised range.
+
 ## Not built or decided against
 
 - Planned, gated on release signing: opt-in auto-update for self-hosted nodes.
@@ -40,5 +63,6 @@ Status: Partially implemented, as above. Version handling is in the [server crat
 ## Related
 
 - [Nodes](README.md)
+- [Ledger entry envelope](../../protocol/ledger-entry-envelope.md)
 - [Discovery and peering](discovery-and-peering.md)
 - [Protocol events](../../protocol/protocol-events.md) (event-schema versioning)
