@@ -15,6 +15,7 @@ This is the normative architecture reference for Avalon: the invariants, the aut
 | Topic | Page | One line |
 | --- | --- | --- |
 | Overview | [overview.md](overview.md) | What Avalon is and is not; the three verticals; component boundaries |
+| As built | [as-built.md](as-built.md) | How the repositories and protocol crates depend on each other, and where contracts flow |
 | Settlement | [settlement.md](settlement.md) | Batched commitments; a transparency log on Postgres, no blockchain and no validator consensus |
 | Query and indexing | [query-and-indexing.md](query-and-indexing.md) | Postgres read models are projections, rebuildable from history |
 | Nodes | [nodes/README.md](nodes/README.md) | Infrastructure providers, not authorities: roles, shards, mirrors, discovery, connectivity |
