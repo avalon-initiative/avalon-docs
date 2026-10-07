@@ -84,6 +84,8 @@ The reference web client derives the signing key from a freshly generated BIP39 
 
 The primary path is the device-grant model above, with no phrase in the common case: each device holds its own key. **Limit:** the reference web client stores the derived secret key in unencrypted browser `localStorage`, keyed by identity id, with the same exposure as any other script-readable value on that origin. The passkey has no equivalent decision, since it never leaves the platform authenticator. Granting a signing key never authenticates a login by itself.
 
+Losing every device is covered by [the recovery ladder](./recovery-ladder.md); total loss with no mnemonic and no guardians is final.
+
 ## Session continuation across nodes
 
 An opaque bearer token is node-local: it is minted by the node that ran the WebAuthn login and checked only against that node's session table. If that node goes offline, the token is dead even though other nodes mirror the identity's history and could serve it.

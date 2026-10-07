@@ -12,7 +12,7 @@ The options are not mutually exclusive:
 - **Social recovery** with M-of-N guardians, described below, is the answer for losing every device at once. It composes with the network-owned [social graph](../social-graph.md) and needs no centralized custodian.
 - **A custodial fallback** (email or SMS) is deliberately not a default. It would reintroduce the shared-secret, centralized-trust surface the design exists to eliminate, and could only ever ship as a clearly labeled, separately opted-into weaker tier. It does not exist.
 
-Onboarding must make the total-loss consequence of a single passkey loud and explicit for an owner without guardians. With no passkey and no guardians configured, the identity is permanently lost; nobody can look it up and reissue it.
+The full order of fallbacks is on [the recovery ladder](./recovery-ladder.md). Onboarding must make the total-loss consequence of a single passkey loud and explicit for an owner without guardians. With no passkey and no guardians configured, the identity is permanently lost; nobody can look it up and reissue it.
 
 ## Social recovery via M-of-N guardians
 
@@ -68,5 +68,5 @@ A restored membership is granted at the default member role, since any previous 
 
 ## Related
 
-- [Identity](../identity.md), [authentication and signing keys](./authentication.md), [per-identity event chains](./event-chains.md)
+- [The recovery ladder](./recovery-ladder.md), [identity](../identity.md), [authentication and signing keys](./authentication.md), [per-identity event chains](./event-chains.md)
 - [Social graph](../social-graph.md), [revocation](../revocation.md), [security model](../security-model.md)

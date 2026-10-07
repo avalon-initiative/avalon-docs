@@ -61,5 +61,6 @@ Language-specific walkthroughs (crate and package installation, client construct
 
 - [Integrations overview](README.md)
 - [SDK design](../sdk/design.md)
+- [The recovery ladder](../protocol/identity/recovery-ladder.md): what to tell users at onboarding, and why total key loss is final
 - [Trust model](../protocol/trust-model.md)
 - [Running a node](../developers/running-a-node.md)

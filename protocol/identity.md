@@ -10,6 +10,7 @@ This page covers the model, what the protocol promises to keep durable, and what
 | --- | --- |
 | [Authentication and signing keys](./identity/authentication.md) | passkey login, the separate event-signing key, the fresh-signature tier, device pairing, sessions and their revocation, session continuation across nodes |
 | [Recovery and rollback](./identity/recovery.md) | M-of-N social recovery, the public delay, post-compromise rollback |
+| [The recovery ladder](./identity/recovery-ladder.md) | the order of fallbacks after losing a device, and why total key loss is final |
 | [Per-identity event chains](./identity/event-chains.md) | how concurrent edits converge and how a fork is detected |
 
 ## The model
