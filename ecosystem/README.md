@@ -28,6 +28,8 @@ Avalon is several repositories with a strict dependency direction. This page sho
    avalon-docs: this repository
 ```
 
+The crate-level view, including where the contracts originate, is in [architecture as built](../architecture/as-built.md).
+
 Rules that follow from the direction:
 
 - A change flows downward: protocol, then SDKs, then clients and integrators. Nothing flows back up except a request for a contract change.
