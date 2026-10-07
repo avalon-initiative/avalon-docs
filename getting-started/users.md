@@ -8,7 +8,7 @@ This page is for people who use games, apps, or services that integrate Avalon, 
 
 - One identity that is a keypair you hold, not an account a company owns. It carries no name, government ID, or biometric.
 - Login with a passkey, the same mechanism your phone or browser uses for Face ID, a fingerprint, or a PIN. There are no passwords.
-- Recovery if you lose every device: a small group of guardians you choose can approve recovery, and no one holds a master key.
+- Recovery if you lose every device: a small group of guardians you choose can approve recovery, and no one holds a master key. If you lose every device and have no guardians or written-down phrase, the identity is gone for good ([the recovery ladder](../protocol/identity/recovery-ladder.md)).
 - A friends list, guild memberships, and earned achievements that follow you between integrators.
 
 ## What you control
