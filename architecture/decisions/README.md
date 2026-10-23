@@ -34,6 +34,7 @@ A decision is never rewritten to make the current design look cleaner. When a la
 | [1129](1129-identity-ids-are-self-certifying.md) | Make identity ids self-certifying so they can never clash across shards | Identity | Accepted | 2026-10-02 |
 | [1135](1135-recovery-authorises-a-new-signing-key-with-guardian-signatures.md) | Recovery authorizes a new signing key with guardian signatures, verified by mirrors | Identity | Accepted | 2026-10-02 |
 | [1177](1177-an-account-stays-usable-anywhere-when-its-registering-node-goes-away.md) | Decide how an account stays usable anywhere when its registering node goes away | Nodes and identity | Accepted | 2026-10-02 |
+| [1221](1221-split-identity-and-social.md) | Identity and social become separate roles, shipped as three binaries | Identity and social | Accepted | 2026-10-04 |
 
 ## Decisions that stay with an implementation
 
