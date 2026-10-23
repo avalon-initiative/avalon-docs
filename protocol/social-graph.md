@@ -49,7 +49,7 @@ Discovery is two-tier and private by default:
 - **Always on, relationship-based.** `GET /people/discover` takes no query parameter: it surfaces friends-of-friends and identities sharing a guild with the caller, minus the caller, existing friends, and blocked relationships. It is read-only; acting on a suggestion still goes through the friend-request endpoint.
 - **Opt-in name search.** `GET /identities/search?q=` matches only identities that switched on the `discoverable` preference (off by default for every identity, no exceptions). Matching is a case-insensitive substring match on the display name. Turning the preference off removes the identity from search immediately, since it is read live on every call. A non-opted-in identity never appears in search even to a caller who knows its exact display name; exact-name resolution is a separate path.
 
-The graph remains public history: [decision #1299](https://github.com/avalon-initiative/avalon-protocol/issues/1299) keeps relationships on the ledger as ids. Planned profile commitments and content redaction do not hide those relationships; see [permanence and redaction](./permanence-and-redaction.md) and [current ledger exposure](./privacy.md#what-the-ledger-makes-public).
+The graph remains public history: [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md) keeps relationships on the ledger as ids. Planned profile commitments and content redaction do not hide those relationships; see [permanence and redaction](./permanence-and-redaction.md) and [current ledger exposure](./privacy.md#what-the-ledger-makes-public).
 
 ## Implementation
 

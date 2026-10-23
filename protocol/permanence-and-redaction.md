@@ -2,11 +2,11 @@
 
 **Status:** Planned — the permanence boundary is decided in avalon-protocol#1299; signed redaction is tracked in avalon-protocol#1316.
 
-Avalon's append-only ledger keeps authority history and entry skeletons permanent, while content is intended to be removable. Decision [#1299](https://github.com/avalon-initiative/avalon-protocol/issues/1299) defines that boundary and its limits: removal is best effort, with no legal compliance claim. This page describes the decided model and distinguishes it from [current pruning](./privacy.md#erasure-versus-permanence).
+Avalon's append-only ledger keeps authority history and entry skeletons permanent, while content is intended to be removable. Decision [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md) defines that boundary and its limits: removal is best effort, with no legal compliance claim. This page describes the decided model and distinguishes it from [current pruning](./privacy.md#erasure-versus-permanence).
 
 ## What remains and what can be removed
 
-Planned under [#1299](https://github.com/avalon-initiative/avalon-protocol/issues/1299):
+Planned under [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md):
 
 | Data | Treatment |
 | --- | --- |
@@ -26,13 +26,13 @@ Conforming nodes stop serving the payload, drop its bytes, mark the entry tombst
 
 ## Honest limits
 
-Redaction is best effort. A node that ignores the rule can keep a copy, and removing bytes from conforming nodes does not remove that copy. The nonce in a committed object prevents checking a guessed short value against its hash alone; it does not retract content someone already holds. Crypto-erasure is a later layer if required, and the decision makes no legal compliance claim ([#1299](https://github.com/avalon-initiative/avalon-protocol/issues/1299), [#1316](https://github.com/avalon-initiative/avalon-protocol/issues/1316)).
+Redaction is best effort. A node that ignores the rule can keep a copy, and removing bytes from conforming nodes does not remove that copy. The nonce in a committed object prevents checking a guessed short value against its hash alone; it does not retract content someone already holds. Crypto-erasure is a later layer if required, and the decision makes no legal compliance claim ([ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md), [#1316](https://github.com/avalon-initiative/avalon-protocol/issues/1316)).
 
 While signed redaction is not yet implemented, [payload pruning](./privacy.md#erasure-versus-permanence) is a local retention operation, not a network-wide erasure request. The public friend graph and guild memberships remain visible as authority history. Chat messages have a separate deletion path outside the ledger; see [guild chat](./guilds/chat-and-events.md#messages-are-not-durable).
 
 ## Before creating an identity
 
-Setup should explain the boundary before a person writes data: authority history, public relationship ids, and entry skeletons remain; the planned removal path concerns content and cannot guarantee deletion from a nonconforming node. While committed objects and signed redaction are not yet implemented, profile text also appears in public ledger payloads; do not treat planned redaction as protection for a write made today ([#1125](https://github.com/avalon-initiative/avalon-protocol/issues/1125), [#1299](https://github.com/avalon-initiative/avalon-protocol/issues/1299), [current privacy behavior](./privacy.md#what-the-ledger-makes-public)).
+Setup should explain the boundary before a person writes data: authority history, public relationship ids, and entry skeletons remain; the planned removal path concerns content and cannot guarantee deletion from a nonconforming node. While committed objects and signed redaction are not yet implemented, profile text also appears in public ledger payloads; do not treat planned redaction as protection for a write made today ([#1125](https://github.com/avalon-initiative/avalon-protocol/issues/1125), [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md), [current privacy behavior](./privacy.md#what-the-ledger-makes-public)).
 
 Losing access to an identity and removing its published data are separate questions. Read [the recovery ladder](./identity/recovery-ladder.md) for total key loss, and [identity portability](./identity.md#portability-depends-on-where-the-identitys-events-live) for the current dependence on node-held state. Neither recovery nor moving between nodes removes already mirrored history.
 

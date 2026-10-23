@@ -98,6 +98,8 @@ The `game.` prefix is a preserved historical spelling and applies to every integ
 
 Source: [`events.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/events.rs) and [`event_payloads.rs`](https://github.com/avalon-initiative/avalon-protocol/blob/main/crates/protocol/src/event_payloads.rs).
 
+The signed-format rules are recorded in [ADR 1153](../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md), and the client-signed chain-position flow in [ADR 1251](../architecture/decisions/1251-decision-how-a-signed-event-gets-its-identity-chain-position.md).
+
 ## Related
 
 - [Protocol events](./protocol-events.md), [worked ledger example](./worked-ledger-example.md)

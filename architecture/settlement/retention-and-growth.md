@@ -23,6 +23,8 @@ A hot node may discard payloads older than its window only when the network stil
 
 How far pruning could go beyond payload nulling (for example dropping whole rows) is an open decision: [ADR 1009](../decisions/1009-how-far-does-ledger-pruning-go-past-payload-nulling.md).
 
+Payload-hash commitments are recorded in [ADR 1153](../decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md). Retention pruning is distinct from the planned signed-redaction path in [ADR 1299](../decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md): the latter removes content from conforming nodes, keeps permanent skeletons, and remains best effort. See [permanence and redaction](../../protocol/permanence-and-redaction.md).
+
 ## Minimum replication for new registrations
 
 A related gate protects durability rather than storage. A shard that does not yet have enough independently confirmed mirrors is a shard whose data could be lost with one machine, so once it is past a bootstrap grace period it stops accepting new identity registrations until enough distinct, currently fresh mirrors confirm it. Identities already registered are never disrupted. A young single-operator shard is exempt during the grace period, and a node that cannot yet tell the shard's age treats it as young. The node reports its confirmed mirror count and eligibility in its status so an operator sees the problem before a registration fails. One minimum applies to every shard; per-shard-type configuration does not exist yet.

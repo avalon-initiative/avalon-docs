@@ -89,12 +89,12 @@ A pure mirror that has not yet backfilled a shard answers a "nothing here yet" 4
 | [Topology and tracing](topology-and-tracing.md) | The per-node topology view with connectivity and latency path, probe, trace, operation tracing, overlay routing |
 | [Node-to-node write routes](write-route-credentials.md) | The credential on relay, chat replication, and mirror notify, standing, replay protection, refusal codes, the per-route scope checks, and known residuals |
 | [Safety limits](safety-limits.md) | Outbound address policy, rate and concurrency limits, request bounds, relay, stream, and failover limits, public read CORS |
-| [Version rollout](version-rollout.md) | Permanent version skew, the three version axes, minimum-version floor |
+| [Version rollout](version-rollout.md) | Permanent version skew, version axes, minimum-version floor, planned activation ([ADR 1152](../decisions/1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md)) |
 | [Cross-node login](cross-node-login.md) | Logging an identity into a node it never registered on |
 
 ## Open questions
 
-Capability negotiation and role-aware node selection on the SDK side (SDKs pick a verified server; they do not route individual calls by role); TLS requirements before any non-local deployment (hosting guidance requires TLS termination beyond localhost); a formal export format for the log; release signing, which gates opt-in auto-update for self-hosted nodes.
+Capability negotiation and role-aware node selection on the SDK side (SDKs pick a verified server; they do not route individual calls by role); TLS requirements before any non-local deployment (hosting guidance requires TLS termination beyond localhost); a formal export format for the log; release signing, which gates the planned per-category auto-update for self-hosted nodes ([ADR 1154](../decisions/1154-decision-emergency-upgrade-path-for-a-fix-that-cannot-wait-for-the-activation-window.md)).
 
 ## Related
 

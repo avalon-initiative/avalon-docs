@@ -12,6 +12,8 @@ Two nodes can each accept a layer-1 edit (say, a profile change through one node
 
 Every layer-1 event belongs to its own identity's chain: a per-identity sequence number (monotonic within that identity and unrelated to the global ledger sequence) plus a hash pointer to the previous event in that chain. In the ledger the position is stored inside the entry's payload under the reserved key `_identity_chain` (`{seq, prev_hash}`), so it is covered by the entry hash (through the payload hash the entry commits to) and reaches every mirror without a wire-format change. Kinds that do not participate (achievement issuance, integrator registration, `identity.created` itself, and the first passkey and inception signing-key events written at registration) carry no position. The chain hash alone does not verify who authored an event, but for the signed key events the author's signature now covers the position as well: a device-grant approval and a signing-key revocation sign the `seq` and `prev_hash` they extend (see [authentication](./authentication.md#cross-device-pairing-for-clients-without-webauthn)). An identity's key chain (the inception key derives the id, and each later key is signed in by an active key) is described in [the identity id](../identity.md#the-identity-id).
 
+Planned for every chained kind under [ADR 1251](../../architecture/decisions/1251-decision-how-a-signed-event-gets-its-identity-chain-position.md): the client fetches the current head, signs `seq` and `prev_hash`, and submits; the host verifies the position and returns the new head for re-signing if stale. The key-event subset described above is built; the decision does not change the conflict rule below.
+
 ## The deterministic rule
 
 The rule is pure logic with no I/O, so every node computes the same outcome from the same set of events:
@@ -35,6 +37,8 @@ Most layer-1 events (profile edits, friend actions, guild membership changes) ar
 - Convergence for the friendship, guild-roster, passkey, and signing-key projections. Their events are recorded so forks are detected, but a concurrent same-position conflict in those projections is not undone.
 - Chain positions for rollback compensations and for events authored on behalf of another shard.
 - SDK support for the resolution rule. The shared vector for it (`identity-chain.json`) is vendored in `avalon-sdks` but only the protocol runner exercises it; no SDK implements chain resolution. The SDKs do sign the chain position into the key events above and re-sign on a stale position.
+
+The canonical signed-format rules are recorded in [ADR 1153](../../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md).
 
 ## Implementation
 

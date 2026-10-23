@@ -22,6 +22,8 @@ A witness cosignature is a second, independent signature over the same `(tree_si
 2. A consistency proof from the last `(tree_size, root_hash)` this witness itself cosigned for that network and shard to the new one, proving an append-only extension and not a rewrite.
 3. This witness has not already cosigned a different root at this exact `tree_size`.
 
+Planned: [ADR 1152](../architecture/decisions/1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md) gates rule changes on each node's own known-list readiness and requires witnesses to refuse heads under unsupported rules; see [activation](../architecture/nodes/version-rollout.md#rules-version-and-activation). The signed-format decision also covers tree heads and node messages ([ADR 1153](../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md)).
+
 ## Default parameters
 
 | Parameter | Default | Reason |

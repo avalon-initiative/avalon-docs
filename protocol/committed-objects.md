@@ -2,7 +2,7 @@
 
 **Status:** Planned — the shared object mechanism is tracked in avalon-protocol#1313; current profile fields still appear inline in ledger events.
 
-A committed object is signed content held off the ledger and verified against a hash recorded on it. Decisions [#1125](https://github.com/avalon-initiative/avalon-protocol/issues/1125) and [#1299](https://github.com/avalon-initiative/avalon-protocol/issues/1299) separate authority state, recorded in full, from content, recorded as a commitment. This page describes that decided direction; the current profile representation is documented in [identity](./identity.md#what-is-promised-durable).
+A committed object is signed content held off the ledger and verified against a hash recorded on it. Decisions [#1125](https://github.com/avalon-initiative/avalon-protocol/issues/1125) and [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md) separate authority state, recorded in full, from content, recorded as a commitment. This page describes that decided direction; the current profile representation is documented in [identity](./identity.md#what-is-promised-durable).
 
 ## Authority and content
 

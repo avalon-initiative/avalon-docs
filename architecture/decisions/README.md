@@ -29,11 +29,17 @@ A decision is never rewritten to make the current design look cleaner. When a la
 | [0479](0479-network-isolation-via-per-network-issuer-registration-not-signature.md) | Network Isolation Via Per-Network Issuer Registration, Not Signature Binding | Networks and trust | Accepted | 2026-09-19 |
 | [0672](0672-realtime-websocket-extraction-proxies-through-gateway-not-direct-connect.md) | Realtime WebSocket extraction proxies through Gateway, not direct-connect | Nodes | Accepted | 2026-09-20 |
 | [0786](0786-on-demand-cross-node-identity-data-resolution.md) | On-Demand Cross-Node Identity Data Resolution | Nodes and identity | Accepted | 2026-09-23 |
+| [0797](0797-decision-safe-failure-behavior-for-sdk-node-requests-across-a-breaking-x-version-boundary.md) | Decision: safe failure behavior for SDK<->node requests across a breaking (X) version boundary | SDK and node compatibility | Accepted | 2026-10-05 |
 | [0903](0903-node-participation-must-not-depend-on-public-reachability-nat.md) | node participation must not depend on public reachability (NAT-aware connectivity) | Nodes and networking | Accepted | 2026-09-25 |
 | [1009](1009-how-far-does-ledger-pruning-go-past-payload-nulling.md) | how far does ledger pruning go past payload-nulling — checkpoint/archive tiering for skeleton rows? | History and retention | Accepted | 2026-09-28 |
 | [1129](1129-identity-ids-are-self-certifying.md) | Make identity ids self-certifying so they can never clash across shards | Identity | Accepted | 2026-10-02 |
 | [1135](1135-recovery-authorises-a-new-signing-key-with-guardian-signatures.md) | Recovery authorizes a new signing key with guardian signatures, verified by mirrors | Identity | Accepted | 2026-10-02 |
+| [1152](1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md) | Decision: consensus rule changes ship in three steps, driven by readiness instead of a calendar | Network upgrades | Accepted | 2026-10-02 |
+| [1153](1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md) | Decision: every signed and ledger format is versioned and forward-compatible before launch | Formats and versioning | Accepted | 2026-10-05 |
+| [1154](1154-decision-emergency-upgrade-path-for-a-fix-that-cannot-wait-for-the-activation-window.md) | Decision: emergency upgrade path for a fix that cannot wait for the activation window | Network upgrades | Accepted | 2026-10-05 |
 | [1177](1177-an-account-stays-usable-anywhere-when-its-registering-node-goes-away.md) | Decide how an account stays usable anywhere when its registering node goes away | Nodes and identity | Accepted | 2026-10-02 |
+| [1251](1251-decision-how-a-signed-event-gets-its-identity-chain-position.md) | [Decision] How a signed event gets its identity-chain position | Identity event chains | Accepted | 2026-10-04 |
+| [1299](1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md) | [Decision] Permanence versus erasure: what the public ledger may hold and what a person can have removed | History and privacy | Accepted | 2026-10-05 |
 
 ## Decisions that stay with an implementation
 

@@ -66,6 +66,8 @@ The hash and Merkle structure and the signing scheme follow RFC 6962 (Certificat
 - **Trust in a head need not rest on one key.** Independent witnesses can cosign a head after checking it only grew, and a verifier accepts it once a majority of its known witness list has cosigned. See [witness cosigning](../protocol/witness-cosigning.md) and [network trust anchors](../protocol/network-trust-anchors.md).
 - **Genesis and network identity.** A ledger is committed once, at first boot, to a `network_id`; every later boot verifies the configured value against the stored one and refuses to start on a mismatch. `network_id` and the shard id are hashed into every entry, so two ledgers with different identities have disjoint hash spaces and a private instance's entries cannot be spliced into the public chain. See [self-hosting](self-hosting.md).
 
+The versioned-format and payload-hash decision is [ADR 1153](decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md). The planned authority/content and signed-redaction boundary is [ADR 1299](decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md); see [permanence and redaction](../protocol/permanence-and-redaction.md).
+
 ## Verification
 
 `verify` runs two independent checks, and both must pass.

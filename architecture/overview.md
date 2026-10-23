@@ -122,6 +122,12 @@ Internal growth is by module, not by new component. A new domain such as assets 
 
 The SDKs live in [avalon-sdks](https://github.com/avalon-initiative/avalon-sdks), generated from the server's OpenAPI description. An SDK may know about protocol capabilities, authentication, retries, discovery, and routing; it must not expose Postgres, chain internals, Merkle trees, or node topology to an integrator. See [SDK design](../sdk/design.md).
 
+## Rules changes and upgrades
+
+**Status:** Planned. [ADR 1152](decisions/1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md) separates the integer `rules_version` from a build's semver. Signed structures retain the rules they were authored under. Changes go through Understand, Emit once the author's known-list majority supports the new rules, and an optional Require step with a higher readiness bar; release gaps provide notice without a fixed activation date. See [version rollout](nodes/version-rollout.md#rules-version-and-activation) for the thresholds, 30-day minimum gaps, and fail-closed behavior.
+
+The associated decisions cover [ADR 0797](decisions/0797-decision-safe-failure-behavior-for-sdk-node-requests-across-a-breaking-x-version-boundary.md) (SDK-to-node version mismatch rejection), [ADR 1153](decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md) (versioned, forward-compatible signed and ledger formats), and [ADR 1154](decisions/1154-decision-emergency-upgrade-path-for-a-fix-that-cannot-wait-for-the-activation-window.md) (the emergency upgrade path).
+
 ## Architecture tests
 
 Every proposed dependency or abstraction is checked against the [architecture tests](README.md#architecture-tests): could the protocol types survive PostgreSQL, the settlement backend, or HTTP changing; can a node fabricate an issuer claim (no); can Avalon prove an achievement is meaningful (no); can a receiving integrator decline a valid claim (yes). The answers there are the requirement, not an aspiration.

@@ -10,6 +10,8 @@ Every entry on a shard's append-only chain is hashed over a fixed layout, the en
 - **Payload**: the kind-specific content (`{"display_name":"Alice"}`). Free-form JSON, canonicalized (RFC 8785, restricted), and the entry commits to its SHA-256, not its bytes.
 - **Layout**: the exact byte order a hash is computed over. A layout is identified by a domain tag and a `u16` version.
 
+The format rules are recorded in [ADR 1153](../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md); the permanence and payload-removal boundary is [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md).
+
 ## Today: the ledger entry
 
 The chain link is `prev_hash`, and the signed tree head commits to the Merkle root of the entries.
@@ -95,7 +97,7 @@ PAYLOAD  (per kind and event_version; canonical JSON; may be pruned)
 | Part | What it enables |
 | --- | --- |
 | `envelope_version` | An old node reads the first bytes, sees a version above its range, and fails closed naming the version it needs. A new node dispatches to the right layout for every old entry forever. |
-| `rules_version` | Validity of an entry is decided under the rules it declares, never by when it is seen. |
+| `rules_version` | Planned under [ADR 1152](../architecture/decisions/1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md): validity is decided under the declared rules, never by when an entry is seen. |
 | `event_version` | Payload schema evolution per kind. A payload change is a new `kind@version`, never an edit. |
 | `hash_algo` | A future hash is a new tag on new entries, while old entries keep verifying under the old one. |
 | `extensions` | Most envelope additions become ignorable by old nodes. |
@@ -112,7 +114,7 @@ What stays impossible, by design: changing the meaning of an entry already on th
 | Critical extension or `envelope_version` above range (proposed) | Fail closed: do not store as verified, serve as verified, or cosign; report `upgrade required` with the version needed; keep serving everything earlier |
 | A write it cannot process | Reject with a typed error naming the supported range |
 
-How an envelope change reaches the network is drawn in [version rollout](../architecture/nodes/version-rollout.md#rolling-out-an-envelope-change).
+Planned: unsupported writes are rejected under [ADR 0797](../architecture/decisions/0797-decision-safe-failure-behavior-for-sdk-node-requests-across-a-breaking-x-version-boundary.md); unknown replicated kinds and versions are preserved without projection under [ADR 1153](../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md). How an envelope change reaches the network is drawn in [version rollout](../architecture/nodes/version-rollout.md#rolling-out-an-envelope-change).
 
 ## Implementation
 
