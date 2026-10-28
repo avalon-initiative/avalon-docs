@@ -14,7 +14,7 @@ Mirroring addresses read decentralization: anyone can verify the log without tru
 
 ## How a mirror verifies
 
-A mirror watches one or more configured peers. Every tick, for each peer, it:
+A mirror watches one or more configured peers (`AVALON_MIRROR_PEERS`). A peer is configured either as an `http(s)` base URL or as a bare `p2p://<peer id>` identity. A node may know a `p2p://` peer only by its id, with no address yet, so before its first poll it resolves the peer through a DHT lookup (or an address it has already learned). That resolution runs inside the node-to-node connection deadline: a peer that cannot be reached fails within the deadline and is retried on the next tick. Every tick, for each peer, it:
 
 1. Fetches the peer's latest signed tree head and verifies its signature, using the verify key resolved from the trust anchor for the peer's claimed `network_id`. A peer claiming an unpinned `network_id` is refused outright ([network trust anchors](../../protocol/network-trust-anchors.md)).
 2. Records the head as an observation, separate from the heads this node itself produced as an authority.
