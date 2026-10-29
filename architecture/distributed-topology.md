@@ -12,7 +12,7 @@ Avalon separates two distributed problems and keeps them apart, the same hot and
 ```mermaid
 graph TD
     subgraph "Shard: core"
-        A1[Core authority node]
+        A1[Core authority node<br/>current reference deployment, not a required role]
         A2[core's own hash-chained log]
         A1 --> A2
     end
@@ -41,6 +41,7 @@ graph TD
     W -- "computes the cross-shard root<br/>from gossiped heads" --> R1[Cross-shard root]
 ```
 
+- The `core` shard and its authority node are how the reference deployment runs today. Nothing in the design requires a privileged node, and removing the remaining dependence on one is tracked in [epic 1305](https://github.com/avalon-initiative/avalon-protocol/issues/1305).
 - Each shard is authoritative for its own events only, with one legitimate signer per shard, so there is still nothing to referee. The no-consensus reasoning of [ADR 0186](decisions/0186-no-blockchain-validator-consensus-transparency-log-only.md) applies per shard.
 - **No node does the gluing.** The cross-shard root is a fixed, public recipe over gossiped shard heads, so any witness computes the identical result independently. Losing any one witness changes nothing, and there is no privileged aggregator role to lose. Today one node computes it live in the reference deployment; the property is a design invariant of the recipe, not yet demonstrated by a second, independent witness that agrees.
 - A shard operator can be the integrator itself, or a managed host running infrastructure on its behalf, with the signing key never leaving the integrator either way. Managed shards are Planned in production; the mechanism exists ([managed shard hosting](self-hosting/managed-shard-hosting.md)).
