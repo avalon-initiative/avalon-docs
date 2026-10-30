@@ -116,5 +116,6 @@ Status: partially implemented.
 
 ## Related
 
+- [Abuse model](./abuse-model.md)
 - [Identity](./identity.md), [presence](./presence.md), [guilds](./guilds.md), [social graph](./social-graph.md), [registry](./registry.md)
 - [Security model](./security-model.md), [settlement](../architecture/settlement.md)

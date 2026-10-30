@@ -116,6 +116,7 @@ Status: implemented. Core types (`Guild`, `JoinPolicy`, `GuildRole`, `GuildMembe
 
 ## Related
 
+- [Abuse model](./abuse-model.md)
 - [Identity](./identity.md), [social graph](./social-graph.md), [presence](./presence.md), [bindings](./bindings.md), [registry](./registry.md), [privacy](./privacy.md)
 - [Protocol events](./protocol-events.md), [communication](../architecture/communication.md)
 - [ADR 0074: guilds are network-level primitives](../architecture/decisions/0074-guilds-are-network-level-primitives-not-game-owned.md)

@@ -61,6 +61,7 @@ Status: implemented for identity-session access; capability-gated integrator rea
 
 ## Related
 
+- [Abuse model](./abuse-model.md)
 - [Identity](./identity.md), [guilds](./guilds.md), [presence](./presence.md), [privacy](./privacy.md), [bindings](./bindings.md)
 - [Communication](../architecture/communication.md)
 - [Protocol events](./protocol-events.md)
