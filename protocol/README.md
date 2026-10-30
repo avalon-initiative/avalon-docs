@@ -64,9 +64,9 @@ Two rules run through every page. An identity and its social data belong to the 
 
 | Page | Status | One line |
 | --- | --- | --- |
-| [Protocol events](./protocol-events.md) | Implemented | The event envelope, pipeline, and versioning policy |
-| [Committed objects](./committed-objects.md) | Planned | Signed profile and guild content, ledger commitments, refetching, and availability |
-| [Permanence and redaction](./permanence-and-redaction.md) | Planned | Permanent authority history and skeletons, best-effort content removal, and limits |
+| [Protocol events](./protocol-events.md) | Implemented | The event envelope, pipeline, and versioning policy ([ADR 1153](../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md)); rules-version activation is Planned ([ADR 1152](../architecture/decisions/1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md)) |
+| [Committed objects](./committed-objects.md) | Planned | Signed profile and guild content, ledger commitments, refetching, and availability ([ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md)) |
+| [Permanence and redaction](./permanence-and-redaction.md) | Planned | Permanent authority history and skeletons, best-effort content removal, and limits ([ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md)) |
 | [Ledger entry envelope](./ledger-entry-envelope.md) | Partially implemented | The hashed entry layout byte by byte, stored form, and the proposed full envelope |
 | [Event catalogue](./protocol-events-catalogue.md) | Reference | Every event kind, payload, and attribution |
 | [Worked ledger example](./worked-ledger-example.md) | Reference | One user's ledger as real ordered events, and what never appears on it |

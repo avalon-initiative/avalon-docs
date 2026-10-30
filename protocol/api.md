@@ -26,6 +26,8 @@ The following route families are intentionally outside the OpenAPI document, and
 
 The two `/ledger/sth/*` routes, `proof/*`, and `entries` are consumed by SDK network verification and mirroring, so their client-visible shapes are pinned by conformance vectors rather than by OpenAPI: see below. Cosignatures are returned alongside an STH with `?witnesses=1`; the default response body is unchanged.
 
+Planned SDK-to-node compatibility checks are recorded in [ADR 0797](../architecture/decisions/0797-decision-safe-failure-behavior-for-sdk-node-requests-across-a-breaking-x-version-boundary.md): requests carry `rules_version` and unsupported versions get a typed error naming the supported range. This is separate from the existing OpenAPI schema version. The rules-version and announcement contract is recorded in [ADR 1152](../architecture/decisions/1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md); see [activation](../architecture/nodes/version-rollout.md#rules-version-and-activation).
+
 ## Conformance vectors
 
 Generated code covers wire shapes. Client-side behavior that must be identical in every language (signing bytes, tree-head verification, cosigned-head acceptance, known-list selection) is fixed by shared JSON vectors.

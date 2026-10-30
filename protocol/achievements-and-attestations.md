@@ -25,6 +25,8 @@ Attestation
 
 The signature answers "did Integrator A issue this". Nothing in it answers "was this hard", and nothing can; see the [trust model](./trust-model.md). `evidence` is an opaque pointer (a hash, URL, or short identifier), not a place to store content. Its serialized size is capped at 4096 bytes, a network-wide validity rule and not a per-node setting, since it gates what every node accepts into the permanent ledger.
 
+Changes to network-wide validity rules, including evidence caps, use the planned activation process in [ADR 1152](../architecture/decisions/1152-decision-consensus-rule-changes-ship-in-three-steps-driven-by-readiness-instead-of-a-calendar.md). The signed-format rules are recorded in [ADR 1153](../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md); see [format migration status](./protocol-events.md#canonical-payloads-and-signing-bytes).
+
 ## Namespacing
 
 Human-readable names are never globally unique. Ids are namespaced under the issuer via `GlobalId` (`<namespace>:<owner>:<kind>:<key>`):

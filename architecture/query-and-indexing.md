@@ -78,6 +78,8 @@ Which social state a rebuild restores, and how another node learns it, differs b
 
 Payload pruning on a hot-tier node removes the payloads a rebuild or a mirror needs, so a pruned friend or guild entry cannot restore its relationship on that node ([privacy](../protocol/privacy.md#what-the-ledger-makes-public)). The recovery gap for server-owned guild state is [avalon-protocol#1250](https://github.com/avalon-initiative/avalon-protocol/issues/1250).
 
+The planned client-signed position rule for every chained event is [ADR 1251](decisions/1251-decision-how-a-signed-event-gets-its-identity-chain-position.md): the host verifies the position rather than assigning it after signing. The existing [conflict rule](../protocol/identity/event-chains.md#the-deterministic-rule) is unchanged. Unknown replicated kinds and versions are preserved without projection under [ADR 1153](decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md).
+
 ## Settlement versus querying
 
 Kept apart on purpose: the settlement component commits and verifies, and the indexer reads and aggregates. They may share a database today. They must never share a definition of truth. A server reading directly from the ledger to answer a profile lookup is exactly what this separation exists to prevent. The narrow exceptions are a caller's own history and the subject-filtered entry read ([settlement](settlement.md#query-reads-are-not-settlement-reads)). A source-scanning test guards that the main handlers never query the profile table or the ledger directly.

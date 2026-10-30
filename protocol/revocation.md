@@ -4,6 +4,8 @@
 
 Revocation adds history and never erases it. An attestation that was issued and later revoked leaves two facts in durable history, "Integrator A issued it" and "Integrator A later revoked it", and both stay visible. The same applies at the issuer level: suspending or revoking an issuer is an appended entry, not a deletion of everything it ever signed.
 
+This authority-history rule is distinct from the planned content-removal boundary in [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md): [signed redaction](./permanence-and-redaction.md#signed-redaction) drops removable content while retaining its permanent skeleton.
+
 ## Individual revocation
 
 ```text

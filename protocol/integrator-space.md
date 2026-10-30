@@ -67,7 +67,7 @@ A published schema is protobuf IDL (`.proto`), chosen for mature field-numbering
 
 ## Historical interpretation
 
-A schema version is immutable once data is recorded against it. Old data is read according to the schema version it was created under, and a new version never silently reinterprets it. This reuses the [event versioning policy](./protocol-events.md#versioning-policy): every version stays decodable forever, and a rename or meaning change is a new version.
+The signed and ledger format rules are recorded in [ADR 1153](../architecture/decisions/1153-decision-every-signed-and-ledger-format-is-versioned-and-forward-compatible-before-launch.md). A schema version is immutable once data is recorded against it. Old data is read according to the schema version it was created under, and a new version never silently reinterprets it. This reuses the [event versioning policy](./protocol-events.md#versioning-policy): every version stays decodable forever, and a rename or meaning change is a new version.
 
 ## Visibility and reads
 
@@ -89,6 +89,8 @@ Integrator Space data reuses the existing [provenance](./provenance.md) model: a
 - It does not make Avalon the arbiter of what an integrator's fields mean.
 - It does not make a character portable; portability stays opt-in and per entity.
 - It does not extend `IntegratorBinding` or the achievement `schema` field to carry general integrator data.
+
+Planned under [ADR 1299](../architecture/decisions/1299-decision-permanence-versus-erasure-what-the-public-ledger-may-hold-and-what-a-person-can-have-removed.md): intrinsic free text in integrator-defined data can be removed through [signed redaction](./permanence-and-redaction.md#signed-redaction), while authority history and entry skeletons remain permanent.
 
 ## Implementation
 
